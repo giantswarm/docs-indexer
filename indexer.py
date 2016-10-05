@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import shutil
+import signal
 import sys
 import time
 import toml
@@ -23,21 +24,61 @@ KEEP_PROCESS_ALIVE = os.getenv("KEEP_PROCESS_ALIVE", False)
 REPOSITORY_URL = os.getenv("REPOSITORY_URL")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "master")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
+EXTERNAL_REPOSITORY_SUBFOLDER = os.getenv("EXTERNAL_REPOSITORY_SUBFOLDER")
 
 # Path to markdown files
 SOURCE_PATH = "/gitcache"
 
-def clone_repo(repo_url, branch):
+def clone_repos(repo_url, branch):
     # local git directory has to be empty, so we
     # make sure it is
     logging.info("Cloning git repository %s, branch '%s'" % (repo_url, branch))
     if os.path.exists(SOURCE_PATH):
         shutil.rmtree(SOURCE_PATH)
-    os.mkdir(SOURCE_PATH)
-    cmd = ["git", "clone",
-           "-q", "--depth", "1", "-b", branch,
-           repo_url, SOURCE_PATH]
+
+    # repo name from URL
+    (reponame, ending) = os.path.basename(repo_url).split(".")
+
+    main_path = SOURCE_PATH + os.sep + reponame
+    os.makedirs(main_path)
+    cmd = ["git", "clone", "-q",
+           "--depth", "1",
+           "-b", branch,
+           repo_url, main_path]
     call(cmd)
+
+
+
+    # check out referenced repositories too
+    reference_file = os.path.join(SOURCE_PATH, reponame, "external-repositories.txt")
+    logging.info("reference_file: %s" % reference_file)
+    if os.path.exists(reference_file):
+        logging.info("Cloning repositories from %s" % reference_file)
+        with open(reference_file, "rb") as ref:
+            for line in ref.readlines():
+                line = line.strip()
+                if line == "":
+                    continue
+                (repo_url, target_path_prefix) = line.split(" ")
+                (reponame, ending) = os.path.basename(repo_url).split(".")
+                path = os.path.join(SOURCE_PATH, reponame)
+                logging.info("Cloning repository %s to %s" % (reponame, path))
+                os.makedirs(path)
+                cmd = ["git", "clone", "-q",
+                       "--depth", "1",
+                       repo_url, path]
+                call(cmd)
+                # copy relevant content into main repo
+                relevant_stuff_path = path
+                if EXTERNAL_REPOSITORY_SUBFOLDER is not None:
+                    relevant_stuff_path += os.sep + EXTERNAL_REPOSITORY_SUBFOLDER
+                target_path = os.path.join(main_path, target_path_prefix, reponame)
+                shutil.copytree(relevant_stuff_path, target_path)
+
+                # delete external repository
+                shutil.rmtree(path)
+
+    return main_path
 
 def get_pages(root_path):
     """
@@ -60,6 +101,8 @@ def get_pages(root_path):
         if "img" in dirs:
             dirs.remove("img")
         for filename in files:
+            if filename[-3:] != ".md":
+                continue
             path = root.split(os.sep)[num_root_elements:]
             file_path = root + os.sep + filename
             if filename != "index.md":
@@ -138,6 +181,7 @@ def index_page(path, breadcrumb, uri, index):
         data["breadcrumb_%d" % i] = breadcrumb[i - 1]
 
     # send to ElasticSearch
+    logging.info("Indexing page %s" % uri)
     es.index(
         index=index,
         doc_type=ELASTICSEARCH_DOCTYPE,
@@ -155,9 +199,15 @@ def wait_forever():
         logging.info("Staying alive, doing nothing (KEEP_PROCESS_ALIVE is set).")
         time.sleep(60*60*24)
 
+def sigterm_handler(_signo, _stack_frame):
+    logging.info("Terminating due to SIGTERM")
+    sys.exit(0)
+
 if __name__ == "__main__":
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
+
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
     # logging setup
     ch = logging.StreamHandler(sys.stdout)
@@ -173,12 +223,14 @@ if __name__ == "__main__":
         else:
             sys.exit(1)
 
+    # give elasticsearch some time
+    time.sleep(10)
+
     es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
 
-    clone_repo(REPOSITORY_URL, REPOSITORY_BRANCH)
+    path = clone_repos(REPOSITORY_URL, REPOSITORY_BRANCH)
 
     # get page data
-    path = SOURCE_PATH
     if REPOSITORY_SUBFOLDER is not None:
         path += os.sep + REPOSITORY_SUBFOLDER
     pages = get_pages(path)
