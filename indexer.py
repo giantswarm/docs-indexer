@@ -160,7 +160,12 @@ def index_page(path, breadcrumb, uri, index):
     else:
         front_matter_start = matches[0].start(1)
         front_matter_end = matches[1].start(1)
-        data = toml.loads(source_text[(front_matter_start + 3):front_matter_end])
+        try:
+            data = toml.loads(source_text[(front_matter_start + 3):front_matter_end])
+        except:
+            logging.warn("Indexing page %s: Error parsing front matter. Please check syntax. Skipping page." % path)
+            # Don't do anything else with this page
+            return
         text = markdown_to_text(source_text_unicode[(front_matter_end+3):])
         for key in data.keys():
             if type(data[key]) == str:
