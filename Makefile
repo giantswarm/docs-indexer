@@ -1,4 +1,4 @@
 
 
 docker-build:
-	docker build -t registry.giantswarm.io/giantswarm/docs-indexer:latest .
+	docker build -t quay.io/giantswarm/docs-indexer .

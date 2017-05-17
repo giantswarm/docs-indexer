@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: docs
+  name: docs-indexer
+spec:
+  template:
+    metadata:
+      name: docs-indexer
+      labels:
+        app: docs
+        component: docs-indexer
+    spec:
+      containers:
+      - name: docs-indexer
+        image: quay.io/giantswarm/docs-indexer:{{ .BuildInfo.SHA }}
+        env:
+          - name: ELASTICSEARCH_ENDPOINT
+            valueFrom:
+              secretKeyRef:
+                name: elasticsearch-endpoint-url
+                key: value
+          - name: EXTERNAL_REPOSITORY_SUBFOLDER
+            value: docs
+          - name: KEEP_PROCESS_ALIVE
+            value: False
+          - name: REPOSITORY_BRANCH
+            value: master
+          - name: REPOSITORY_SUBFOLDER
+            value: content
+          - name: REPOSITORY_URL
+            value: https://github.com/giantswarm/docs-content.git
+      restartPolicy: Never
