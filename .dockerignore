@@ -1,2 +1,6 @@
 /kubernetes
 .git
+
+# these might be present on CircleCI
+architect
+kubectl
