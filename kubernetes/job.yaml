@@ -30,4 +30,4 @@ spec:
             value: content
           - name: REPOSITORY_URL
             value: https://github.com/giantswarm/docs-content.git
-      restartPolicy: Never
+      restartPolicy: OnFailure
