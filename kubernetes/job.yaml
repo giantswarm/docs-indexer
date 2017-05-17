@@ -22,8 +22,6 @@ spec:
                 key: value
           - name: EXTERNAL_REPOSITORY_SUBFOLDER
             value: docs
-          - name: KEEP_PROCESS_ALIVE
-            value: "False"
           - name: REPOSITORY_BRANCH
             value: master
           - name: REPOSITORY_SUBFOLDER
