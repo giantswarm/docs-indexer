@@ -1,3 +1,5 @@
+[![Docker Repository on Quay](https://quay.io/repository/giantswarm/docs-indexer/status "Docker Repository on Quay")](https://quay.io/repository/giantswarm/docs-indexer)
+
 # docs-indexer
 
 Indexes content for the search engine of [docs.giantswarm.io](https://docs.giantswarm.io).
