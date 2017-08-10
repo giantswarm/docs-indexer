@@ -14,7 +14,6 @@ spec:
           labels:
             app: docs
             component: indexer
-            repo: giantswarm/docs-indexer
         spec:
           containers:
           - name: indexer
