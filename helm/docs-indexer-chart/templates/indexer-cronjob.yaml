@@ -14,6 +14,7 @@ spec:
           labels:
             app: docs
             component: indexer-cronjob
+            repo: giantswarm/docs-indexer
         spec:
           containers:
           - name: indexer
