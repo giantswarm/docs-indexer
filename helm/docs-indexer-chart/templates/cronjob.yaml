@@ -18,7 +18,7 @@ spec:
           containers:
           - name: indexer
             # This image is supposed to be publicly accessible
-            image: quay.io/giantswarm/docs-indexer:[[ .SHA ]]
+            image: quay.io/giantswarm/docs-indexer:latest
             env:
               - name: ELASTICSEARCH_ENDPOINT
                 valueFrom:
