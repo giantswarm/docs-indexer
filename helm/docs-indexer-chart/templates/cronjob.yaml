@@ -10,10 +10,10 @@ spec:
     spec:
       template:
         metadata:
-          name: indexer-cronjob
+          name: indexer
           labels:
             app: docs
-            component: indexer-cronjob
+            component: indexer
             repo: giantswarm/docs-indexer
         spec:
           containers:
