@@ -6,6 +6,8 @@ metadata:
 spec:
   # once every hour. We randomly chose :57 to avoid :00.
   schedule: "57 * * * *"
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
   jobTemplate:
     spec:
       template:
