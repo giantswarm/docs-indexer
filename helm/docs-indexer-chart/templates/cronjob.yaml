@@ -35,6 +35,12 @@ spec:
                 value: content
               - name: REPOSITORY_URL
                 value: https://github.com/giantswarm/docs-content.git
+              - name: APIDOCS_BASE_URI
+                value: https://docs.giantswarm.io/api/
+              - name: APIDOCS_BASE_PATH
+                value: /api/
+              - name: API_SPEC_FILES
+                value: spec.yaml,definitions.yaml,parameters.yaml
           restartPolicy: OnFailure
           # retry for a maximum of 10 minutes
           activeDeadlineSeconds: 600
