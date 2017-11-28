@@ -5,6 +5,7 @@ from datetime import datetime
 from elasticsearch import Elasticsearch
 from markdown import markdown
 from subprocess import call
+from prance import ResolvingParser
 import json
 import logging
 import os
@@ -14,6 +15,8 @@ import signal
 import sys
 import time
 import toml
+import tempfile
+import urllib2
 
 
 ELASTICSEARCH_INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX_NAME", "docs")
@@ -25,6 +28,9 @@ REPOSITORY_URL = os.getenv("REPOSITORY_URL")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "master")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
 EXTERNAL_REPOSITORY_SUBFOLDER = os.getenv("EXTERNAL_REPOSITORY_SUBFOLDER")
+APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI")
+APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH")
+API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 
 # Path to markdown files
 SOURCE_PATH = "/gitcache"
@@ -194,6 +200,69 @@ def index_page(path, breadcrumb, uri, index):
         body=data)
 
 
+def index_openapi_spec(uri, base_path, spec_files, index):
+    """
+    Indexes our API docs based on the Open API specification YAML
+    """
+    files = spec_files.split(",")
+    tmpdir = tempfile.mkdtemp()
+
+    # download spec files
+    for filename in files:
+        url = uri + filename
+        logging.info("Reading URL %s" % url)
+        req = urllib2.Request(url=url)
+        f = urllib2.urlopen(req)
+        content = f.read()
+        path = tmpdir + os.path.sep + os.path.basename(filename)
+        with open(path, "w") as outfile:
+            outfile.write(content)
+            f.close()
+
+    # parse spec
+    parser = ResolvingParser(tmpdir + os.path.sep + os.path.basename(files[0]))
+    #pprint.pprint(parser.specification["paths"])
+
+    for path in parser.specification["paths"]:
+        for method in parser.specification["paths"][path]:
+
+            target_uri = base_path + "#operation/" + parser.specification["paths"][path][method]["operationId"]
+
+            logging.info("Indexing %s %s as URL %s" % (method.upper(), path, target_uri))
+
+            title = u"%s - %s %s" % (parser.specification["paths"][path][method]["summary"].decode("utf8"),
+                method.upper().decode("utf8"), path.decode("utf8"))
+
+            # forming body from operation spec
+            body = u"The %s API operation\n\n" % parser.specification["paths"][path][method]["operationId"].decode("utf8")
+            body += markdown_to_text(parser.specification["paths"][path][method]["description"].decode("utf8"))
+            for code in parser.specification["paths"][path][method]["responses"]:
+                body += u"\n- %s" % parser.specification["paths"][path][method]["responses"][code]["description"].decode("utf8")
+
+            text = title + "\n\n" + body
+
+            # breadcrumb (list of path segments) from base_path
+            parts = base_path.split("/")
+            breadcrumb = []
+            for part in parts:
+                if part != "":
+                    breadcrumb.append(part)
+            breadcrumb.append("#operation/" + parser.specification["paths"][path][method]["operationId"])
+
+            data = {
+                "title": title,
+                "uri": target_uri,
+                "breadcrumb": breadcrumb,
+                "body": body,
+                "text": text,
+            }
+            es.index(
+                index=index,
+                doc_type=ELASTICSEARCH_DOCTYPE,
+                id=data["uri"],
+                body=data)
+
+
 def make_indexname(name_prefix):
     """creates a random index name"""
     return name_prefix + "-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -240,15 +309,17 @@ if __name__ == "__main__":
         path += os.sep + REPOSITORY_SUBFOLDER
     pages = get_pages(path)
 
-    # generate temporary index name
+    # create new index
     tempindex = make_indexname(ELASTICSEARCH_INDEX_NAME)
-
     es.indices.create(index=tempindex)
     es.indices.put_mapping(index=tempindex,
         doc_type=ELASTICSEARCH_DOCTYPE,
         body=ELASTICSEARCH_MAPPING)
 
-    # index each page into new index
+    # index API spec
+    index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, tempindex)
+
+    # index docs pages
     for page in pages:
         index_page(page["file_path"], page["path"], page["uri"], tempindex)
 
