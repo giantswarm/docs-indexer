@@ -40,7 +40,7 @@ spec:
               - name: APIDOCS_BASE_PATH
                 value: /api/
               - name: API_SPEC_FILES
-                value: yaml/spec.yaml,yaml/definitions.yaml,yaml/parameters.yaml
+                value: yaml/spec.yaml,yaml/definitions.yaml,yaml/parameters.yaml,yaml/responses.yaml
           restartPolicy: OnFailure
           # retry for a maximum of 10 minutes
           activeDeadlineSeconds: 600
