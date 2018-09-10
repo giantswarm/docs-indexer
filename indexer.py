@@ -3,6 +3,7 @@
 from BeautifulSoup import BeautifulSoup
 from datetime import datetime
 from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import NotFoundError
 from markdown import markdown
 from subprocess import call
 from prance import ResolvingParser
@@ -329,7 +330,7 @@ if __name__ == "__main__":
         logging.info("Old index on alias is: %s" % old_index)
         try:
             es.indices.delete_alias(index=old_index, name=ELASTICSEARCH_INDEX_NAME)
-        except elasticsearch.exceptions.NotFoundError:
+        except NotFoundError:
             logging.error("Could not delete index alias for %s" % (old_index))
             pass
         try:
