@@ -59,7 +59,9 @@ def clone_repos(repo_url, branch):
     # check out referenced repositories too
     reference_file = os.path.join(SOURCE_PATH, reponame, "src/external-repositories.txt")
     logging.info("reference_file: %s" % reference_file)
-    if os.path.exists(reference_file):
+    if not os.path.exists(reference_file):
+        logging.error("Could not find file %s", reference_file)
+    else:
         logging.info("Cloning repositories from %s" % reference_file)
         with open(reference_file, "rb") as ref:
             for line in ref.readlines():
