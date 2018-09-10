@@ -100,7 +100,6 @@ def get_pages(root_path):
     logging.info("Getting pages from %s" % root_path)
     num_root_elements = len(root_path.split(os.sep))
     pages = []
-    structured_path = []
     for root, dirs, files in os.walk(root_path):
         if ".git" in dirs:
             dirs.remove(".git")
@@ -158,7 +157,6 @@ def index_page(path, breadcrumb, uri, index):
     data = {
         "title": u""
     }
-    title = None
     matches = list(re.finditer(r"(\+\+\+)", source_text_unicode))
     if len(matches) < 2:
         logging.warn("Indexing page %s: No front matter found (looking for +++ blah +++)" % path)
