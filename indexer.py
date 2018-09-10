@@ -3,6 +3,7 @@
 from BeautifulSoup import BeautifulSoup
 from datetime import datetime
 from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import NotFoundError
 from markdown import markdown
 from subprocess import call
 from prance import ResolvingParser
@@ -56,9 +57,11 @@ def clone_repos(repo_url, branch):
 
 
     # check out referenced repositories too
-    reference_file = os.path.join(SOURCE_PATH, reponame, "external-repositories.txt")
+    reference_file = os.path.join(SOURCE_PATH, reponame, "src/external-repositories.txt")
     logging.info("reference_file: %s" % reference_file)
-    if os.path.exists(reference_file):
+    if not os.path.exists(reference_file):
+        logging.error("Could not find file %s", reference_file)
+    else:
         logging.info("Cloning repositories from %s" % reference_file)
         with open(reference_file, "rb") as ref:
             for line in ref.readlines():
@@ -100,7 +103,6 @@ def get_pages(root_path):
     logging.info("Getting pages from %s" % root_path)
     num_root_elements = len(root_path.split(os.sep))
     pages = []
-    structured_path = []
     for root, dirs, files in os.walk(root_path):
         if ".git" in dirs:
             dirs.remove(".git")
@@ -158,7 +160,6 @@ def index_page(path, breadcrumb, uri, index):
     data = {
         "title": u""
     }
-    title = None
     matches = list(re.finditer(r"(\+\+\+)", source_text_unicode))
     if len(matches) < 2:
         logging.warn("Indexing page %s: No front matter found (looking for +++ blah +++)" % path)
@@ -331,7 +332,7 @@ if __name__ == "__main__":
         logging.info("Old index on alias is: %s" % old_index)
         try:
             es.indices.delete_alias(index=old_index, name=ELASTICSEARCH_INDEX_NAME)
-        except elasticsearch.exceptions.NotFoundError:
+        except NotFoundError:
             logging.error("Could not delete index alias for %s" % (old_index))
             pass
         try:
