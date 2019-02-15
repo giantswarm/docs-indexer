@@ -1,6 +1,6 @@
 # encoding: utf8
 
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
 from datetime import datetime
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
@@ -17,8 +17,9 @@ import sys
 import time
 import toml
 import tempfile
-import urllib2
+import urllib3
 
+from pprint import pprint
 
 ELASTICSEARCH_INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX_NAME", "docs")
 ELASTICSEARCH_DOCTYPE = os.getenv("ELASTICSEARCH_DOCTYPE", "page")
@@ -44,7 +45,7 @@ def clone_repos(repo_url, branch):
         shutil.rmtree(SOURCE_PATH)
 
     # repo name from URL
-    (reponame, ending) = os.path.basename(repo_url).split(".")
+    (reponame, _) = os.path.basename(repo_url).split(".")
 
     main_path = SOURCE_PATH + os.sep + reponame
     os.makedirs(main_path)
@@ -68,8 +69,8 @@ def clone_repos(repo_url, branch):
                 line = line.strip()
                 if line == "":
                     continue
-                (repo_url, target_path_prefix) = line.split(" ")
-                (reponame, ending) = os.path.basename(repo_url).split(".")
+                (repo_url, target_path_prefix) = line.decode().split(" ")
+                (reponame, _) = os.path.basename(repo_url).split(".")
                 path = os.path.join(SOURCE_PATH, reponame)
                 logging.info("Cloning repository %s to %s" % (reponame, path))
                 os.makedirs(path)
@@ -130,7 +131,7 @@ def get_pages(root_path):
 def markdown_to_text(markdown_text):
     """expects markdown unicode"""
     html = markdown(markdown_text)
-    text = ''.join(BeautifulSoup(html).findAll(text=True))
+    text = ''.join(BeautifulSoup(html, features="html.parser").findAll(text=True))
     text = text.replace(" | ", " ")
     text = re.sub(r"[\-]{3,}", "-", text)  # markdown tables
     return text
@@ -147,14 +148,7 @@ def index_page(path, breadcrumb, uri, index):
     """
     # get document body
     with open(path, "r") as file_handler:
-        source_text = file_handler.read()
-        try:
-            source_text_unicode = source_text.decode("utf8")
-        except UnicodeDecodeError, e:
-            logging.warn("Not indexing page '%s'. Reason:" % path)
-            logging.warn(e)
-            logging.debug(source_text)
-            return
+        source_text_unicode = file_handler.read()
 
     # parse front matter
     data = {
@@ -162,21 +156,22 @@ def index_page(path, breadcrumb, uri, index):
     }
     matches = list(re.finditer(r"(\+\+\+)", source_text_unicode))
     if len(matches) < 2:
-        logging.warn("Indexing page %s: No front matter found (looking for +++ blah +++)" % path)
+        logging.warning("Indexing page %s: No front matter found (looking for +++ blah +++)" % path)
         text = markdown_to_text(source_text_unicode)
     else:
         front_matter_start = matches[0].start(1)
         front_matter_end = matches[1].start(1)
         try:
-            data = toml.loads(source_text[(front_matter_start + 3):front_matter_end])
-        except:
-            logging.warn("Indexing page %s: Error parsing front matter. Please check syntax. Skipping page." % path)
+            data = toml.loads(source_text_unicode[(front_matter_start + 3):front_matter_end])
+        except Exception as e:
+            logging.error(e)
+            logging.warning("Indexing page %s: Error parsing front matter. Please check syntax. Skipping page." % path)
             # Don't do anything else with this page
             return
         text = markdown_to_text(source_text_unicode[(front_matter_end+3):])
         for key in data.keys():
             if type(data[key]) == str:
-                data[key] = data[key].decode("utf8")
+                data[key] = data[key]
 
     data["uri"] = uri
     data["breadcrumb"] = breadcrumb
@@ -208,17 +203,16 @@ def index_openapi_spec(uri, base_path, spec_files, index):
     files = spec_files.split(",")
     tmpdir = tempfile.mkdtemp()
 
+    http = urllib3.PoolManager()
+
     # download spec files
     for filename in files:
         url = uri + filename
         logging.info("Reading URL %s" % url)
-        req = urllib2.Request(url=url)
-        f = urllib2.urlopen(req)
-        content = f.read()
+        req = http.request("GET", url)
         path = tmpdir + os.path.sep + os.path.basename(filename)
         with open(path, "w") as outfile:
-            outfile.write(content)
-            f.close()
+            outfile.write(req.data.decode())
 
     # parse spec
     parser = ResolvingParser(tmpdir + os.path.sep + os.path.basename(files[0]))
@@ -231,14 +225,14 @@ def index_openapi_spec(uri, base_path, spec_files, index):
 
             logging.info("Indexing %s %s as URL %s" % (method.upper(), path, target_uri))
 
-            title = u"%s - %s %s" % (parser.specification["paths"][path][method]["summary"].decode("utf8"),
-                method.upper().decode("utf8"), path.decode("utf8"))
+            title = u"%s - %s %s" % (parser.specification["paths"][path][method]["summary"],
+                method.upper(), path)
 
             # forming body from operation spec
-            body = u"The %s API operation\n\n" % parser.specification["paths"][path][method]["operationId"].decode("utf8")
-            body += markdown_to_text(parser.specification["paths"][path][method]["description"].decode("utf8"))
+            body = u"The %s API operation\n\n" % parser.specification["paths"][path][method]["operationId"]
+            body += markdown_to_text(parser.specification["paths"][path][method]["description"])
             for code in parser.specification["paths"][path][method]["responses"]:
-                body += u"\n- %s" % parser.specification["paths"][path][method]["responses"][code]["description"].decode("utf8")
+                body += u"\n- %s" % parser.specification["paths"][path][method]["responses"][code]["description"]
 
             text = title + "\n\n" + body
 
@@ -324,22 +318,25 @@ if __name__ == "__main__":
     for page in pages:
         index_page(page["file_path"], page["path"], page["uri"], tempindex)
 
-    # remove old indexif existed, re-create alias
+    # remove old index if existed, re-create alias
     if es.indices.exists_alias(name=ELASTICSEARCH_INDEX_NAME):
         old_index = es.indices.get_alias(name=ELASTICSEARCH_INDEX_NAME)
+        
         # here we assume there is only one index behind this alias
-        old_index = old_index.keys()[0]
-        logging.info("Old index on alias is: %s" % old_index)
-        try:
-            es.indices.delete_alias(index=old_index, name=ELASTICSEARCH_INDEX_NAME)
-        except NotFoundError:
-            logging.error("Could not delete index alias for %s" % (old_index))
-            pass
-        try:
-            es.indices.delete(index=old_index)
-        except:
-            logging.error("Could not delete index %s" % old_index)
-            pass
+        old_indices = list(old_index.keys())
+
+        if len(old_indices) > 0:
+            logging.info("Old index on alias is: %s" % old_indices[0])
+            try:
+                es.indices.delete_alias(index=old_indices[0], name=ELASTICSEARCH_INDEX_NAME)
+            except NotFoundError:
+                logging.error("Could not delete index alias for %s" % old_indices[0])
+                pass
+            try:
+                es.indices.delete(index=old_indices[0])
+            except:
+                logging.error("Could not delete index %s" % old_indices[0])
+                pass
     es.indices.put_alias(index=tempindex, name=ELASTICSEARCH_INDEX_NAME)
 
     if KEEP_PROCESS_ALIVE != False:
