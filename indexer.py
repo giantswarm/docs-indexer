@@ -112,18 +112,22 @@ def get_pages(root_path):
         for filename in files:
             if filename[-3:] != ".md":
                 continue
+
             path = root.split(os.sep)[num_root_elements:]
             file_path = root + os.sep + filename
-            if filename != "index.md":
+            if filename not in ("index.md", "_index.md"):
                 # append name of file (without suffix) as last uri segment
                 segment = filename[:-3]
                 path.append(segment)
+
             uri = "/" + "/".join(path) + "/"
             record = {
                 "path": path,
                 "uri": uri,
                 "file_path": file_path
             }
+
+            logging.info(record)
             pages.append(record)
     return pages
 
