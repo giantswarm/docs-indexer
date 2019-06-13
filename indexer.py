@@ -85,9 +85,10 @@ def clone_repos(repo_url, branch):
                 cmd = ["git", "clone", "-q",
                        "--depth", "1",
                        repo_url, path]
-                returncode = call(cmd)
-
-                if returncode > 0:
+                call(cmd)
+                
+                gitpath = os.path.join(path, ".git")
+                if not os.path.exists(gitpath):
                     print("ERROR: could not clone external repo '%s'" % reponame)
                     continue
 
