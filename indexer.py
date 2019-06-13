@@ -38,9 +38,15 @@ API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 SOURCE_PATH = "/gitcache"
 
 def clone_repos(repo_url, branch):
+    """
+    Create a local clone of the docs repository defined by repo_url
+    using the given branch plus all the external repositories
+    referenced by the docs repo in the src/external-repositories.txt file
+    """
+    logging.info("Cloning git repository %s, branch '%s'" % (repo_url, branch))
+
     # local git directory has to be empty, so we
     # make sure it is
-    logging.info("Cloning git repository %s, branch '%s'" % (repo_url, branch))
     if os.path.exists(SOURCE_PATH):
         shutil.rmtree(SOURCE_PATH)
 
@@ -53,9 +59,11 @@ def clone_repos(repo_url, branch):
            "--depth", "1",
            "-b", branch,
            repo_url, main_path]
-    call(cmd)
+    returncode = call(cmd)
 
-
+    # check success
+    if returncode > 0:
+        return None
 
     # check out referenced repositories too
     reference_file = os.path.join(SOURCE_PATH, reponame, "src/external-repositories.txt")
@@ -77,7 +85,12 @@ def clone_repos(repo_url, branch):
                 cmd = ["git", "clone", "-q",
                        "--depth", "1",
                        repo_url, path]
-                call(cmd)
+                returncode = call(cmd)
+
+                if returncode > 0:
+                    print("ERROR: could not clone external repo '%s'" % reponame)
+                    continue
+
                 # copy relevant content into main repo
                 relevant_stuff_path = path
                 if EXTERNAL_REPOSITORY_SUBFOLDER is not None:
@@ -302,6 +315,9 @@ if __name__ == "__main__":
     es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
 
     path = clone_repos(REPOSITORY_URL, REPOSITORY_BRANCH)
+    if path is None:
+        print("ERROR: Could not clone docs main repository.")
+        sys.exit(1)
 
     # get page data
     if REPOSITORY_SUBFOLDER is not None:
