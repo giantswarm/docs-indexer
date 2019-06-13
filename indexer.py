@@ -95,8 +95,12 @@ def clone_repos(repo_url, branch):
                 # copy relevant content into main repo
                 relevant_stuff_path = path
                 if EXTERNAL_REPOSITORY_SUBFOLDER is not None:
-                    relevant_stuff_path += os.sep + EXTERNAL_REPOSITORY_SUBFOLDER
+                    relevant_stuff_path = os.path.join(relevant_stuff_path, EXTERNAL_REPOSITORY_SUBFOLDER)
                 target_path = os.path.join(main_path, target_path_prefix, reponame)
+                if not os.path.exists(relevant_stuff_path):
+                    print("ERROR: path '%s' does not exist, so cannot be copied and indexed." % relevant_stuff_path)
+                    continue
+
                 shutil.copytree(relevant_stuff_path, target_path)
 
                 # delete external repository
