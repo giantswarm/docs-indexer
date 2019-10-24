@@ -45,11 +45,6 @@ def clone_repos(repo_url, branch):
     """
     logging.info("Cloning git repository %s, branch '%s'" % (repo_url, branch))
 
-    # local git directory has to be empty, so we
-    # make sure it is
-    if os.path.exists(SOURCE_PATH):
-        shutil.rmtree(SOURCE_PATH)
-
     # repo name from URL
     (reponame, _) = os.path.basename(repo_url).split(".")
 
