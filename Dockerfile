@@ -18,6 +18,6 @@ WORKDIR /app
 COPY indexer.py /app/
 COPY mapping.json /app/
 
-USER indexer
+USER 101
 
 ENTRYPOINT ["python", "indexer.py"]
