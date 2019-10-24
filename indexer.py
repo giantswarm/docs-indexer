@@ -35,7 +35,7 @@ APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH")
 API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 
 # Path to markdown files
-SOURCE_PATH = "/gitcache"
+SOURCE_PATH = "/home/indexer/gitcache"
 
 def clone_repos(repo_url, branch):
     """
