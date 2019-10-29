@@ -35,7 +35,7 @@ APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH")
 API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 
 # Path to markdown files
-SOURCE_PATH = "/gitcache"
+SOURCE_PATH = "/home/indexer/gitcache"
 
 def clone_repos(repo_url, branch):
     """
@@ -44,11 +44,6 @@ def clone_repos(repo_url, branch):
     referenced by the docs repo in the src/external-repositories.txt file
     """
     logging.info("Cloning git repository %s, branch '%s'" % (repo_url, branch))
-
-    # local git directory has to be empty, so we
-    # make sure it is
-    if os.path.exists(SOURCE_PATH):
-        shutil.rmtree(SOURCE_PATH)
 
     # repo name from URL
     (reponame, _) = os.path.basename(repo_url).split(".")
