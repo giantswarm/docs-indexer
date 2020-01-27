@@ -1,0 +1,6 @@
+name: docs-indexer-app
+namespace: docs
+image:
+  name: docs-indexer
+  tag: "[[.Version]]"
+  sha: "[[.SHA]]"
