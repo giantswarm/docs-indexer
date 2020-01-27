@@ -1,8 +1,8 @@
 apiVersion: batch/v2alpha1
 kind: CronJob
 metadata:
-  namespace: docs
-  name: indexer
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Values.name }}
 spec:
   # once every hour. We randomly chose :57 to avoid :00.
   schedule: "57 * * * *"
@@ -12,35 +12,43 @@ spec:
     spec:
       template:
         metadata:
-          name: indexer
+          name: {{ .Values.name }}
           labels:
             app: docs
             component: indexer
         spec:
           containers:
-          - name: indexer
-            # This image is supposed to be publicly accessible
-            image: quay.io/giantswarm/docs-indexer:[[ .SHA ]]
-            env:
-              - name: ELASTICSEARCH_ENDPOINT
-                valueFrom:
-                  secretKeyRef:
-                    name: elasticsearch-endpoint-url
-                    key: value
-              - name: EXTERNAL_REPOSITORY_SUBFOLDER
-                value: docs
-              - name: REPOSITORY_BRANCH
-                value: master
-              - name: REPOSITORY_SUBFOLDER
-                value: src/content
-              - name: REPOSITORY_URL
-                value: https://github.com/giantswarm/docs.git
-              - name: APIDOCS_BASE_URI
-                value: https://docs.giantswarm.io/api/
-              - name: APIDOCS_BASE_PATH
-                value: /api/
-              - name: API_SPEC_FILES
-                value: yaml/spec.yaml,yaml/definitions.yaml,yaml/parameters.yaml,yaml/responses.yaml
+            - name: {{ .Values.name }}
+              # This image is supposed to be publicly accessible
+              image: quay.io/giantswarm/{{ .Values.image.name }}:{{ .Values.image.sha }}
+              env:
+                - name: ELASTICSEARCH_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: elasticsearch-endpoint-url
+                      key: value
+                - name: EXTERNAL_REPOSITORY_SUBFOLDER
+                  value: docs
+                - name: REPOSITORY_BRANCH
+                  value: master
+                - name: REPOSITORY_SUBFOLDER
+                  value: src/content
+                - name: REPOSITORY_URL
+                  value: https://github.com/giantswarm/docs.git
+                - name: APIDOCS_BASE_URI
+                  value: https://docs.giantswarm.io/api/
+                - name: APIDOCS_BASE_PATH
+                  value: /api/
+                - name: API_SPEC_FILES
+                  value: yaml/spec.yaml,yaml/definitions.yaml,yaml/parameters.yaml,yaml/responses.yaml
+              volumeMounts:
+                - name: cache
+                  mountPath: /home/indexer/gitcache
+          volumes:
+            - name: cache
+              emptyDir: {}
           restartPolicy: OnFailure
           # retry for a maximum of 10 minutes
           activeDeadlineSeconds: 600
+          serviceAccount: {{ .Values.name }}
+          serviceAccountName: {{ .Values.name }}
