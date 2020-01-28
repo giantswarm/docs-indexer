@@ -1,22 +1,40 @@
 apiVersion: batch/v2alpha1
 kind: CronJob
+
 metadata:
   namespace: {{ .Release.Namespace }}
   name: {{ .Values.name }}
+
+# CronJob spec
 spec:
   # once every hour. We randomly chose :57 to avoid :00.
   schedule: "57 * * * *"
+  concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 2
+  
+  # Job template spec
   jobTemplate:
+
+    # Job Spec
     spec:
+      # Maximum runtime: 10 minutes
+      activeDeadlineSeconds: 600
+      backoffLimit: 10
+      completions: 1
+      parallelism: 1
+      ttlSecondsAfterFinished: 3600
+
       template:
         metadata:
           name: {{ .Values.name }}
           labels:
             app: docs
             component: indexer
+
+        # Pod spec
         spec:
+          ttlSecondsAfterFinished: 3600
           containers:
             - name: {{ .Values.name }}
               # This image is supposed to be publicly accessible
@@ -45,7 +63,5 @@ spec:
             - name: cache
               emptyDir: {}
           restartPolicy: OnFailure
-          # retry for a maximum of 10 minutes
-          activeDeadlineSeconds: 600
           serviceAccount: {{ .Values.name }}
           serviceAccountName: {{ .Values.name }}
