@@ -29,14 +29,13 @@ spec:
         metadata:
           name: {{ .Values.name }}
           labels:
-            app: docs
-            component: indexer
+            app: {{ .Values.name }}
 
         # Pod spec
         spec:
           ttlSecondsAfterFinished: 3600
           containers:
-            - name: {{ .Values.name }}
+            - name: {{ .Values.image.name }}
               # This image is supposed to be publicly accessible
               image: quay.io/giantswarm/{{ .Values.image.name }}:{{ .Values.image.sha }}
               env:
