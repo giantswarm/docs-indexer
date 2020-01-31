@@ -40,7 +40,7 @@ spec:
               image: quay.io/giantswarm/{{ .Values.image.name }}:{{ .Values.image.sha }}
               env:
                 - name: ELASTICSEARCH_ENDPOINT
-                  value: http://sitesearch:9200/
+                  value: http://sitesearch-app:9200/
                 - name: EXTERNAL_REPOSITORY_SUBFOLDER
                   value: docs
                 - name: REPOSITORY_BRANCH
