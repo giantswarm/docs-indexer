@@ -6,6 +6,10 @@ Indexes content for the search engine of [docs.giantswarm.io](https://docs.giant
 
 As a source, this takes a public GitHub repository. As a target, an Elasticsearch API endpoint is used.
 
+## App
+
+There is a helm chart in the `helm` subfolder.
+
 ## Configuration
 
 The following environment variables are supported for configuration:

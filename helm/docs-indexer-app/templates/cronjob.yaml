@@ -1,0 +1,66 @@
+apiVersion: batch/v2alpha1
+kind: CronJob
+
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ .Values.name }}
+
+# CronJob spec
+spec:
+  # once every hour. We randomly chose :57 to avoid :00.
+  schedule: "57 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  
+  # Job template spec
+  jobTemplate:
+
+    # Job Spec
+    spec:
+      # Maximum runtime: 10 minutes
+      activeDeadlineSeconds: 600
+      backoffLimit: 10
+      completions: 1
+      parallelism: 1
+      ttlSecondsAfterFinished: 3600
+
+      template:
+        metadata:
+          name: {{ .Values.name }}
+          labels:
+            app: {{ .Values.name }}
+
+        # Pod spec
+        spec:
+          ttlSecondsAfterFinished: 3600
+          containers:
+            - name: {{ .Values.image.name }}
+              # This image is supposed to be publicly accessible
+              image: quay.io/giantswarm/{{ .Values.image.name }}:{{ .Values.image.sha }}
+              env:
+                - name: ELASTICSEARCH_ENDPOINT
+                  value: http://sitesearch-app:9200/
+                - name: EXTERNAL_REPOSITORY_SUBFOLDER
+                  value: docs
+                - name: REPOSITORY_BRANCH
+                  value: master
+                - name: REPOSITORY_SUBFOLDER
+                  value: src/content
+                - name: REPOSITORY_URL
+                  value: https://github.com/giantswarm/docs.git
+                - name: APIDOCS_BASE_URI
+                  value: https://docs.giantswarm.io/api/
+                - name: APIDOCS_BASE_PATH
+                  value: /api/
+                - name: API_SPEC_FILES
+                  value: yaml/spec.yaml,yaml/definitions.yaml,yaml/parameters.yaml,yaml/responses.yaml
+              volumeMounts:
+                - name: cache
+                  mountPath: /home/indexer/gitcache
+          volumes:
+            - name: cache
+              emptyDir: {}
+          restartPolicy: OnFailure
+          serviceAccount: {{ .Values.name }}
+          serviceAccountName: {{ .Values.name }}
