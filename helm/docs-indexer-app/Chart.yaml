@@ -3,5 +3,5 @@ name: docs-indexer-app
 namespace: giantswarmio
 appVersion: 0.0.1
 description: Indexes content for the docs search engine.
-version: 1.0.0-[[ .SHA ]]
+version: "[[.Version]]"
 home: https://github.com/giantswarm/docs-indexer
