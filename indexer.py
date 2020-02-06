@@ -18,6 +18,12 @@ import time
 import toml
 import tempfile
 import urllib3
+import yaml
+
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
 
 from pprint import pprint
 
@@ -158,6 +164,56 @@ def markdown_to_text(markdown_text):
     return text
 
 
+def get_front_matter(source_text, path):
+    """
+    Tries to find front matter in the beginning of the document and
+    then returns a tuple (frontmatter (dict), text).
+    """
+    data = {
+        "title": u""
+    }
+
+    # 1. try TOML front matter
+    matches = list(re.finditer(r"(\+\+\+)", source_text))
+    if len(matches) >= 2:
+        front_matter_start = matches[0].start(1)
+        front_matter_end = matches[1].start(1)
+        try:
+            data = toml.loads(source_text[(front_matter_start + 3):front_matter_end])
+        except Exception as e:
+            logging.error(e)
+            logging.warning("Indexing page %s: Error parsing TOML front matter. Please check syntax. Skipping page." % path)
+            return (None, None)
+    
+        text = markdown_to_text(source_text[(front_matter_end+3):])
+        for key in data.keys():
+            if type(data[key]) == str:
+                data[key] = data[key]
+
+        return (data, text)
+    
+    # 2. Try YAML front matter
+    matches = list(re.finditer(r"(\-\-\-)", source_text))
+    if len(matches) >= 2:
+        front_matter_start = matches[0].start(1)
+        front_matter_end = matches[1].start(1)
+        try:
+            data = yaml.load(source_text[(front_matter_start + 3):front_matter_end], Loader=Loader)
+        except Exception as e:
+            logging.error(e)
+            logging.warning("Indexing page %s: Error parsing front matter. Please check syntax. Skipping page." % path)
+            return (None, None)
+
+        text = markdown_to_text(source_text[(front_matter_end+3):])
+        for key in data.keys():
+            if type(data[key]) == str:
+                data[key] = data[key]
+
+        return (data, text)
+    
+    return (None, None)
+
+
 def index_page(path, breadcrumb, uri, index):
     """
     Send one page to elasticsearch. Arguments:
@@ -171,36 +227,32 @@ def index_page(path, breadcrumb, uri, index):
     with open(path, "r") as file_handler:
         source_text_unicode = file_handler.read()
 
+    data = None
+    text = None
+
     # parse front matter
-    data = {
-        "title": u""
-    }
-    matches = list(re.finditer(r"(\+\+\+)", source_text_unicode))
-    if len(matches) < 2:
-        logging.warning("Indexing page %s: No front matter found (looking for +++ blah +++)" % path)
-        text = markdown_to_text(source_text_unicode)
-    else:
-        front_matter_start = matches[0].start(1)
-        front_matter_end = matches[1].start(1)
-        try:
-            data = toml.loads(source_text_unicode[(front_matter_start + 3):front_matter_end])
-        except Exception as e:
-            logging.error(e)
-            logging.warning("Indexing page %s: Error parsing front matter. Please check syntax. Skipping page." % path)
-            # Don't do anything else with this page
-            return
-        text = markdown_to_text(source_text_unicode[(front_matter_end+3):])
-        for key in data.keys():
-            if type(data[key]) == str:
-                data[key] = data[key]
+    try:
+        data, text = get_front_matter(source_text_unicode, path)
+    except Exception as e:
+        logging.warning("File in %s cannot be parsed for front matter." % path)
+
+    if data is None:
+        logging.warning("File in %s did not provide parseable front matter." % path)
+        data = {}
 
     data["uri"] = uri
     data["breadcrumb"] = breadcrumb
     data["body"] = text
 
     # catch-all text field
-    data["text"] = data["title"]
-    data["text"] += " " + text
+    if "title" in data:
+        data["text"] = data["title"]
+    else:
+        data["text"] = ""
+
+    if text is not None:
+        data["text"] += " " + text
+
     data["text"] += " " + uri
     data["text"] += " " + " ".join(breadcrumb)
 

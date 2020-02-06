@@ -5,3 +5,11 @@ build:
 
 run:
 	docker run --rm -ti quay.io/giantswarm/docs-indexer
+
+venv:
+	virtualenv venv -p python3
+	source venv/bin/activate
+	pip install -r requirements.txt
+
+test: venv
+	venv/bin/python indexer_test.py
