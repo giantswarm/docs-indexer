@@ -21,7 +21,6 @@ The following environment variables are supported for configuration:
 - `KEEP_PROCESS_ALIVE`: If set, the process keeps running (sleeping forever) when the job is finished.
 - `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint
 - `ELASTICSEARCH_INDEX_NAME`: Name for the index to create. Defaults to `docs`.
-- `ELASTICSEARCH_DOCTYPE`: Name for the document type to use. Defaults to `page`.
 - `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
 - `APIDOCS_BASE_PATH`: Should be `/api/`
 - `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec

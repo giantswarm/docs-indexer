@@ -1,30 +1,30 @@
 {
-  "page": {
-    "properties": {
-      "title": {
-        "type": "string",
-        "store": true,
-        "index": "analyzed",
-        "term_vector": "with_positions_offsets",
-        "analyzer": "english",
-        "boost": 10.0
-      },
-      "uri": {
-        "type": "string",
-        "boost": 5.0,
-        "index": "not_analyzed"
-      },
-      "breadcrumb": {
-        "type": "string",
-        "boost": 5.0
-      },
-      "text": {
-        "type": "string",
-        "store": true,
-        "index": "analyzed",
-        "term_vector": "with_positions_offsets",
-        "analyzer": "english"
-      }
+  "properties": {
+    "title": {
+      "type": "text",
+      "store": true,
+      "term_vector": "with_positions_offsets",
+      "analyzer": "english"
+    },
+    "uri": {
+      "type": "keyword",
+      "store": true
+    },
+    "breadcrumb": {
+      "type": "text",
+      "store": true
+    },
+    "body": {
+      "type": "text",
+      "store": true,
+      "term_vector": "with_positions_offsets",
+      "analyzer": "english"
+    },
+    "text": {
+      "type": "text",
+      "store": true,
+      "term_vector": "with_positions_offsets",
+      "analyzer": "english"
     }
   }
 }

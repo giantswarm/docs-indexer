@@ -28,7 +28,6 @@ except ImportError:
 from pprint import pprint
 
 ELASTICSEARCH_INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX_NAME", "docs")
-ELASTICSEARCH_DOCTYPE = os.getenv("ELASTICSEARCH_DOCTYPE", "page")
 ELASTICSEARCH_MAPPING = json.load(open("mapping.json", "rb"))
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
 KEEP_PROCESS_ALIVE = os.getenv("KEEP_PROCESS_ALIVE", False)
@@ -264,7 +263,7 @@ def index_page(path, breadcrumb, uri, index):
     logging.info("Indexing page %s" % uri)
     es.index(
         index=index,
-        doc_type=ELASTICSEARCH_DOCTYPE,
+        doc_type="_doc",
         id=uri,
         body=data)
 
@@ -326,7 +325,7 @@ def index_openapi_spec(uri, base_path, spec_files, index):
             }
             es.index(
                 index=index,
-                doc_type=ELASTICSEARCH_DOCTYPE,
+                doc_type="_doc",
                 id=data["uri"],
                 body=data)
 
@@ -382,10 +381,17 @@ if __name__ == "__main__":
 
     # create new index
     tempindex = make_indexname(ELASTICSEARCH_INDEX_NAME)
-    es.indices.create(index=tempindex)
-    es.indices.put_mapping(index=tempindex,
-        doc_type=ELASTICSEARCH_DOCTYPE,
-        body=ELASTICSEARCH_MAPPING)
+    
+    es.indices.create(
+        index=tempindex,
+        body={
+            "settings" : {
+                "number_of_shards" : 1,
+            },
+            "mappings": ELASTICSEARCH_MAPPING
+        },
+        # include_type_name=false shall be removed once we are on ES 7 or higher
+        include_type_name="false")
 
     # index API spec
     index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, tempindex)
