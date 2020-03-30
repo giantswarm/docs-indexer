@@ -86,7 +86,7 @@ def clone_repos(repo_url, branch):
                 (reponame, _) = os.path.basename(repo_url).split(".")
                 path = os.path.join(SOURCE_PATH, reponame)
                 logging.info("Cloning repository %s to %s" % (reponame, path))
-                os.makedirs(path)
+                os.makedirs(path, exist_ok=True)
                 cmd = ["git", "clone", "-q",
                        "--depth", "1",
                        repo_url, path]
