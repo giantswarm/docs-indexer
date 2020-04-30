@@ -26,3 +26,4 @@ The following environment variables are supported for configuration:
 - `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec
 
 The search mapping for the documents created can be found in `mapping.json`.
+
