@@ -447,12 +447,6 @@ def collect_properties_text(schema_dict):
         for prop in schema_dict["properties"].keys():
             ret.append(prop)
             ret.extend(collect_properties_text(schema_dict["properties"][prop]))
-            # if "type" in schema_dict["properties"][prop]:
-            #     if schema_dict["properties"][prop]["type"] == "object":
-            #         ret.extend(collect_properties_text(schema_dict["properties"][prop]))
-            #     if schema_dict["properties"][prop]["type"] == "array":
-            #         if "items" in schema_dict["properties"][prop]:
-            #             ret.extend(collect_properties_text(schema_dict["properties"][prop]["items"]))
     return ret
 
 
