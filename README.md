@@ -14,7 +14,7 @@ There is a helm chart in the `helm` subfolder.
 
 The following environment variables are supported for configuration:
 
-- `REPOSITORY_URL`: Git repo URL to clone, e. g. `https://github.com/giantswarm/docs-content.git`
+- `REPOSITORY_URL`: Git repo URL to clone, e. g. `https://github.com/giantswarm/docs.git`
 - `REPOSITORY_BRANCH`: Defaults to `master`
 - `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content
 - `EXTERNAL_REPOSITORY_SUBFOLDER`: Only look into this path within external repositories for indexable content
@@ -27,3 +27,7 @@ The following environment variables are supported for configuration:
 
 The search mapping for the documents created can be found in `mapping.json`.
 
+## Usage
+
+[This docker-compose configuration](https://github.com/giantswarm/docs/blob/master/docker-compose.yaml)
+shows how to use the container.
