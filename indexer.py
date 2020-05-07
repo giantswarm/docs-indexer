@@ -42,34 +42,50 @@ API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 # Path to markdown files
 SOURCE_PATH = "/home/indexer/gitcache"
 
-def clone_repos(repo_url, branch):
+
+def clone_repo(repo_url, branch, target_path):
     """
-    Create a local clone of the docs repository defined by repo_url
-    using the given branch plus all the external repositories
-    referenced by the docs repo in the src/external-repositories.txt file
+    Create a shallow clone of a git repository using a certain branch/tag in
+    a given target folder. If the target folder exists, it will be removed
+    first and then created again.
     """
     logging.info("Cloning git repository %s, branch '%s'" % (repo_url, branch))
 
     # repo name from URL
     (reponame, _) = os.path.basename(repo_url).split(".")
 
-    main_path = SOURCE_PATH + os.sep + reponame
+    if os.path.exists(target_path):
+        shutil.rmtree(target_path)
 
-    if os.path.exists(main_path):
-        shutil.rmtree(main_path)
+    os.makedirs(target_path, exist_ok=True)
 
-    os.makedirs(main_path)
     cmd = ["git", "clone", "-q",
            "--depth", "1",
            "-b", branch,
-           repo_url, main_path]
+           repo_url, target_path]
     returncode = call(cmd)
 
     # check success
     if returncode > 0:
+        return False
+    return True
+
+
+def clone_docs_repos(repo_url, branch, target_path):
+    """
+    Create a local clone of the docs repository defined by repo_url
+    using the given branch plus all the external repositories
+    referenced by the docs repo in the src/external-repositories.txt file
+    """
+    
+    cloned = clone_repo(repo_url, branch, main_path)
+
+    # check success
+    if not cloned:
         return None
 
     # check out referenced repositories too
+    (reponame, _) = os.path.basename(repo_url).split(".")
     reference_file = os.path.join(SOURCE_PATH, reponame, "src/external-repositories.txt")
     logging.info("reference_file: %s" % reference_file)
     if not os.path.exists(reference_file):
@@ -81,18 +97,16 @@ def clone_repos(repo_url, branch):
                 line = line.strip()
                 if line == "":
                     continue
+
                 (repo_url, target_path_prefix) = line.decode().split(" ")
                 (reponame, _) = os.path.basename(repo_url).split(".")
                 path = os.path.join(SOURCE_PATH, reponame)
-                logging.info("Cloning repository %s to %s" % (reponame, path))
-                os.makedirs(path, exist_ok=True)
-                cmd = ["git", "clone", "-q",
-                       "--depth", "1",
-                       repo_url, path]
-                call(cmd)
+
+                cloned = clone_repo(repo_url, "master", path)
                 
                 gitpath = os.path.join(path, ".git")
-                if not os.path.exists(gitpath):
+
+                if not cloned or not os.path.exists(gitpath):
                     print("ERROR: could not clone external repo '%s'" % reponame)
                     continue
 
@@ -330,6 +344,113 @@ def index_openapi_spec(uri, base_path, spec_files, index):
                 body=data)
 
 
+def read_crd(path):
+    with open(path, "rb") as crdfile:
+        crd = yaml.load(crdfile, Loader=Loader)
+        return crd
+
+
+def index_crds(config_path, repo_path, index, base_path="/reference/cp-k8s-api/"):
+    """
+    Indexes our API docs based on the Open API specification YAML.
+
+    config_path: Path to crd-docs-generator config file.
+    base_path: Path prefix to use for all CRD detail pages
+    repo_path: Path where to put the apiextensions reporitory clone
+    index: name of the ES index to write the documents to
+    """
+
+    config = None
+    with open(config_path, "rb") as configfile:
+        config = yaml.load(configfile, Loader=Loader)
+        
+    if "source_repository" not in config:
+        raise Exception("Expected 'source_repository' key missing in crd-docs-generator configuration.")
+    if "url" not in config["source_repository"]:
+        raise Exception("Expected 'source_repository.url' key missing in crd-docs-generator configuration.")
+    if "commit_reference" not in config["source_repository"]:
+        raise Exception("Expected 'source_repository.commit_reference' key missing in crd-docs-generator configuration.")
+    
+    skip = []
+    if "skip_crds" in config:
+        skip = config["skip_crds"]
+
+    repo_url = config["source_repository"]["url"]
+    if not repo_url.endswith(".git"):
+        repo_url += ".git"
+
+    cloned = clone_repo(repo_url,
+                        config["source_repository"]["commit_reference"],
+                        repo_path)
+    
+    if not cloned:
+        print("ERROR: could not clone repository % with CRDs" % config["source_repository"]["url"])
+        return None
+    
+    # Treat YAML CRD files in v1 folder
+
+    crd_path = os.path.join(repo_path, "config/crd/v1")
+    for name in os.listdir(crd_path):
+        if not name.endswith(".yaml"):
+            continue
+
+        path = os.path.join(crd_path, name)
+        crd = read_crd(path)
+        
+        if crd["metadata"]["name"] in skip:
+            continue
+
+        print("Indexing CRD %s from file %s" % (crd["metadata"]["name"], name))
+
+        title = "%s CRD schema reference" % crd["spec"]["names"]["kind"]
+        
+        body = crd["metadata"]["name"] + "\n"
+
+        for name in crd["spec"]["names"].keys():
+            if type(crd["spec"]["names"][name]) is str:
+                body += crd["spec"]["names"][name] + "\n"
+
+        for version in crd["spec"]["versions"]:
+            body += version["name"] + "\n"
+
+            if "openAPIV3Schema" in version["schema"]:
+                body += "\n".join(collect_properties_text(version["schema"]["openAPIV3Schema"]))
+
+        data = {
+            "title": title,
+            "uri": base_path + crd["metadata"]["name"] + "/",
+            "breadcrumb": [
+                "reference",
+                "cp-k8s-api",
+                crd["metadata"]["name"]
+            ],
+            "body": body,
+            "text": title + "\n" + body,
+        }
+
+        es.index(
+            index=index,
+            doc_type="_doc",
+            id=data["uri"],
+            body=data)
+
+
+def collect_properties_text(schema_dict):
+    """
+    Recurses into an OpenAPIv3 hierarchy and returns property data valueable for full text indexing.
+    That's mainly the property name and a description, if present.
+    """
+    ret = []
+    if "description" in schema_dict:
+        ret.append(schema_dict["description"])
+    if "properties" in schema_dict:
+        for prop in schema_dict["properties"].keys():
+            ret.append(prop)
+            ret.extend(collect_properties_text(schema_dict["properties"][prop]))
+    return ret
+
+
+
 def make_indexname(name_prefix):
     """creates a random index name"""
     return name_prefix + "-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -365,11 +486,15 @@ if __name__ == "__main__":
             sys.exit(1)
 
     # give elasticsearch some time
-    time.sleep(10)
+    time.sleep(3)
 
     es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
 
-    path = clone_repos(REPOSITORY_URL, REPOSITORY_BRANCH)
+    # repo name from URL
+    (reponame, _) = os.path.basename(REPOSITORY_URL).split(".")
+    main_path = SOURCE_PATH + os.sep + reponame
+
+    path = clone_docs_repos(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
     if path is None:
         print("ERROR: Could not clone docs main repository.")
         sys.exit(1)
@@ -392,6 +517,11 @@ if __name__ == "__main__":
         },
         # include_type_name=false shall be removed once we are on ES 7 or higher
         include_type_name="false")
+
+    # index CRDs
+    crd_generator_config_path = os.path.join(main_path, "crd-docs-generator-config.yaml")
+    apiextensions_repo_path = os.path.join(SOURCE_PATH, "apiextensions")
+    index_crds(crd_generator_config_path, apiextensions_repo_path, tempindex)
 
     # index API spec
     index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, tempindex)
