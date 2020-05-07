@@ -42,34 +42,50 @@ API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 # Path to markdown files
 SOURCE_PATH = "/home/indexer/gitcache"
 
-def clone_repos(repo_url, branch):
+
+def clone_repo(repo_url, branch, target_path):
     """
-    Create a local clone of the docs repository defined by repo_url
-    using the given branch plus all the external repositories
-    referenced by the docs repo in the src/external-repositories.txt file
+    Create a shallow clone of a git repository using a certain branch/tag in
+    a given target folder. If the target folder exists, it will be removed
+    first and then created again.
     """
     logging.info("Cloning git repository %s, branch '%s'" % (repo_url, branch))
 
     # repo name from URL
     (reponame, _) = os.path.basename(repo_url).split(".")
 
-    main_path = SOURCE_PATH + os.sep + reponame
+    if os.path.exists(target_path):
+        shutil.rmtree(target_path)
 
-    if os.path.exists(main_path):
-        shutil.rmtree(main_path)
+    os.makedirs(target_path, exist_ok=True)
 
-    os.makedirs(main_path)
     cmd = ["git", "clone", "-q",
            "--depth", "1",
            "-b", branch,
-           repo_url, main_path]
+           repo_url, target_path]
     returncode = call(cmd)
 
     # check success
     if returncode > 0:
+        return False
+    return True
+
+
+def clone_docs_repos(repo_url, branch, target_path):
+    """
+    Create a local clone of the docs repository defined by repo_url
+    using the given branch plus all the external repositories
+    referenced by the docs repo in the src/external-repositories.txt file
+    """
+    
+    cloned = clone_repo(repo_url, branch, main_path)
+
+    # check success
+    if not cloned:
         return None
 
     # check out referenced repositories too
+    (reponame, _) = os.path.basename(repo_url).split(".")
     reference_file = os.path.join(SOURCE_PATH, reponame, "src/external-repositories.txt")
     logging.info("reference_file: %s" % reference_file)
     if not os.path.exists(reference_file):
@@ -81,18 +97,16 @@ def clone_repos(repo_url, branch):
                 line = line.strip()
                 if line == "":
                     continue
+
                 (repo_url, target_path_prefix) = line.decode().split(" ")
                 (reponame, _) = os.path.basename(repo_url).split(".")
                 path = os.path.join(SOURCE_PATH, reponame)
-                logging.info("Cloning repository %s to %s" % (reponame, path))
-                os.makedirs(path, exist_ok=True)
-                cmd = ["git", "clone", "-q",
-                       "--depth", "1",
-                       repo_url, path]
-                call(cmd)
+
+                cloned = clone_repo(repo_url, "master", path)
                 
                 gitpath = os.path.join(path, ".git")
-                if not os.path.exists(gitpath):
+
+                if not cloned or not os.path.exists(gitpath):
                     print("ERROR: could not clone external repo '%s'" % reponame)
                     continue
 
