@@ -49,7 +49,7 @@ def clone_repo(repo_url, branch, target_path):
     a given target folder. If the target folder exists, it will be removed
     first and then created again.
     """
-    logging.info("Cloning git repository %s, branch '%s'" % (repo_url, branch))
+    logging.info("Cloning git repository %s, branch '%s' to %s" % (repo_url, branch, target_path))
 
     # repo name from URL
     (reponame, _) = os.path.basename(repo_url).split(".")
@@ -78,20 +78,21 @@ def clone_docs_repos(repo_url, branch, target_path):
     referenced by the docs repo in the src/external-repositories.txt file
     """
     
+    # Clone the docs repo itself.
     cloned = clone_repo(repo_url, branch, main_path)
 
-    # check success
     if not cloned:
         return None
 
-    # check out referenced repositories too
+    # Clone the referenced external repositories
     (reponame, _) = os.path.basename(repo_url).split(".")
     reference_file = os.path.join(SOURCE_PATH, reponame, "src/external-repositories.txt")
     logging.info("reference_file: %s" % reference_file)
+
     if not os.path.exists(reference_file):
-        logging.error("Could not find file %s", reference_file)
+        logging.error("Could not find list of external repositories in %s", reference_file)
     else:
-        logging.info("Cloning repositories from %s" % reference_file)
+        logging.info("Cloning repositories listed in %s" % reference_file)
         with open(reference_file, "rb") as ref:
             for line in ref.readlines():
                 line = line.strip()
@@ -114,7 +115,9 @@ def clone_docs_repos(repo_url, branch, target_path):
                 relevant_stuff_path = path
                 if EXTERNAL_REPOSITORY_SUBFOLDER is not None:
                     relevant_stuff_path = os.path.join(relevant_stuff_path, EXTERNAL_REPOSITORY_SUBFOLDER)
-                target_path = os.path.join(main_path, target_path_prefix, reponame)
+
+                # We assume 'src' as the root of all content to index.
+                target_path = os.path.join(main_path, "src", target_path_prefix, reponame)
                 if not os.path.exists(relevant_stuff_path):
                     print("ERROR: path '%s' does not exist, so cannot be copied and indexed." % relevant_stuff_path)
                     continue
