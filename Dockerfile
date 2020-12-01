@@ -11,9 +11,9 @@ RUN set -x \
 RUN apk add --no-cache --update git ca-certificates yaml-dev build-base
 
 ADD requirements.txt /
-RUN pip install --upgrade pip
-RUN pip install --global-option='--with-libyaml' pyyaml
-RUN pip install -r /requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --global-option='--with-libyaml' pyyaml && \
+    pip install -r /requirements.txt
 
 WORKDIR /app
 COPY indexer.py /app/
