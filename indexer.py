@@ -1,5 +1,3 @@
-# encoding: utf8
-
 from bs4 import BeautifulSoup
 from datetime import datetime
 from elasticsearch import Elasticsearch
@@ -10,6 +8,7 @@ from prance import ResolvingParser
 import json
 import logging
 import os
+from pprint import pprint
 import re
 import shutil
 import signal
@@ -23,6 +22,7 @@ import yaml
 try:
     from yaml import CLoader as Loader
 except ImportError:
+    print("WARNING: Using pure python YAML without accelaration of C libraries")
     from yaml import Loader
 
 from pprint import pprint
@@ -71,68 +71,10 @@ def clone_repo(repo_url, branch, target_path):
     return True
 
 
-def clone_docs_repos(repo_url, branch, target_path):
-    """
-    Create a local clone of the docs repository defined by repo_url
-    using the given branch plus all the external repositories
-    referenced by the docs repo in the src/external-repositories.txt file
-    """
-    
-    # Clone the docs repo itself.
-    cloned = clone_repo(repo_url, branch, main_path)
-
-    if not cloned:
-        return None
-
-    # Clone the referenced external repositories
-    (reponame, _) = os.path.basename(repo_url).split(".")
-    reference_file = os.path.join(SOURCE_PATH, reponame, "src/external-repositories.txt")
-    logging.info("reference_file: %s" % reference_file)
-
-    if not os.path.exists(reference_file):
-        logging.error("Could not find list of external repositories in %s", reference_file)
-    else:
-        logging.info("Cloning repositories listed in %s" % reference_file)
-        with open(reference_file, "rb") as ref:
-            for line in ref.readlines():
-                line = line.strip()
-                if line == "":
-                    continue
-
-                (repo_url, target_path_prefix) = line.decode().split(" ")
-                (reponame, _) = os.path.basename(repo_url).split(".")
-                path = os.path.join(SOURCE_PATH, reponame)
-
-                cloned = clone_repo(repo_url, "master", path)
-                
-                gitpath = os.path.join(path, ".git")
-
-                if not cloned or not os.path.exists(gitpath):
-                    print("ERROR: could not clone external repo '%s'" % reponame)
-                    continue
-
-                # copy relevant content into main repo
-                relevant_stuff_path = path
-                if EXTERNAL_REPOSITORY_SUBFOLDER is not None:
-                    relevant_stuff_path = os.path.join(relevant_stuff_path, EXTERNAL_REPOSITORY_SUBFOLDER)
-
-                # We assume 'src' as the root of all content to index.
-                target_path = os.path.join(main_path, "src", target_path_prefix, reponame)
-                if not os.path.exists(relevant_stuff_path):
-                    print("ERROR: path '%s' does not exist, so cannot be copied and indexed." % relevant_stuff_path)
-                    continue
-
-                shutil.copytree(relevant_stuff_path, target_path)
-
-                # delete external repository
-                shutil.rmtree(path)
-
-    return main_path
-
 def get_pages(root_path):
     """
-    Reads the content folder structure and returns a list dicts, one per page.
-    Each page dict has these keys.
+    Reads the content folder structure and returns a list of dicts, one per page.
+    Each page dict has these keys:
 
         path: list of logical uri path elements
         uri: URI of the final rendered page as string
@@ -166,7 +108,6 @@ def get_pages(root_path):
                 "file_path": file_path
             }
 
-            logging.info(record)
             pages.append(record)
     return pages
 
@@ -188,28 +129,9 @@ def get_front_matter(source_text, path):
     data = {
         "title": u""
     }
-
-    # 1. try TOML front matter
-    matches = list(re.finditer(r"(\+\+\+)", source_text))
-    if len(matches) >= 2:
-        front_matter_start = matches[0].start(1)
-        front_matter_end = matches[1].start(1)
-        try:
-            data = toml.loads(source_text[(front_matter_start + 3):front_matter_end])
-        except Exception as e:
-            logging.error(e)
-            logging.warning("Indexing page %s: Error parsing TOML front matter. Please check syntax. Skipping page." % path)
-            return (None, None)
     
-        text = markdown_to_text(source_text[(front_matter_end+3):])
-        for key in data.keys():
-            if type(data[key]) == str:
-                data[key] = data[key]
-
-        return (data, text)
-    
-    # 2. Try YAML front matter
-    matches = list(re.finditer(r"(\-\-\-)", source_text))
+    # Try YAML front matter
+    matches = list(re.finditer(r"(---)\n", source_text))
     if len(matches) >= 2:
         front_matter_start = matches[0].start(1)
         front_matter_end = matches[1].start(1)
@@ -217,15 +139,16 @@ def get_front_matter(source_text, path):
             data = yaml.load(source_text[(front_matter_start + 3):front_matter_end], Loader=Loader)
         except Exception as e:
             logging.error(e)
-            logging.warning("Indexing page %s: Error parsing front matter. Please check syntax. Skipping page." % path)
+            logging.warning(f'Indexing page {path}: Error parsing front matter. Please check syntax.')
             return (None, None)
 
         text = markdown_to_text(source_text[(front_matter_end+3):])
-        for key in data.keys():
-            if type(data[key]) == str:
-                data[key] = data[key]
 
-        return (data, text)
+        # use description as fall back for body on otherwise empty pages
+        if text.strip() == '' and 'description' in data:
+            text = data['description']
+
+        return (data, text.strip())
     
     return (None, None)
 
@@ -255,7 +178,7 @@ def index_page(path, breadcrumb, uri, index):
     if data is None:
         logging.warning("File in %s did not provide parseable front matter." % path)
         data = {}
-
+    
     data["uri"] = uri
     data["breadcrumb"] = breadcrumb
     data["body"] = text
@@ -277,12 +200,14 @@ def index_page(path, breadcrumb, uri, index):
         data["breadcrumb_%d" % i] = breadcrumb[i - 1]
 
     # send to ElasticSearch
-    logging.info("Indexing page %s" % uri)
-    es.index(
-        index=index,
-        doc_type="_doc",
-        id=uri,
-        body=data)
+    try:
+        es.index(
+            index=index,
+            doc_type="_doc",
+            id=uri,
+            body=data)
+    except Exception as e:
+        logging.error(f'Error when indexing page {uri}: {e}')
 
 
 def index_openapi_spec(uri, base_path, spec_files, index):
@@ -353,91 +278,6 @@ def read_crd(path):
         return crd
 
 
-def index_crds(config_path, repo_path, index, base_path="/reference/cp-k8s-api/"):
-    """
-    Indexes our API docs based on the Open API specification YAML.
-
-    config_path: Path to crd-docs-generator config file.
-    base_path: Path prefix to use for all CRD detail pages
-    repo_path: Path where to put the apiextensions reporitory clone
-    index: name of the ES index to write the documents to
-    """
-
-    config = None
-    with open(config_path, "rb") as configfile:
-        config = yaml.load(configfile, Loader=Loader)
-        
-    if "source_repository" not in config:
-        raise Exception("Expected 'source_repository' key missing in crd-docs-generator configuration.")
-    if "url" not in config["source_repository"]:
-        raise Exception("Expected 'source_repository.url' key missing in crd-docs-generator configuration.")
-    if "commit_reference" not in config["source_repository"]:
-        raise Exception("Expected 'source_repository.commit_reference' key missing in crd-docs-generator configuration.")
-    
-    skip = []
-    if "skip_crds" in config:
-        skip = config["skip_crds"]
-
-    repo_url = config["source_repository"]["url"]
-    if not repo_url.endswith(".git"):
-        repo_url += ".git"
-
-    cloned = clone_repo(repo_url,
-                        config["source_repository"]["commit_reference"],
-                        repo_path)
-    
-    if not cloned:
-        print("ERROR: could not clone repository % with CRDs" % config["source_repository"]["url"])
-        return None
-    
-    # Treat YAML CRD files in v1 folder
-
-    crd_path = os.path.join(repo_path, "config/crd/v1")
-    for name in os.listdir(crd_path):
-        if not name.endswith(".yaml"):
-            continue
-
-        path = os.path.join(crd_path, name)
-        crd = read_crd(path)
-        
-        if crd["metadata"]["name"] in skip:
-            continue
-
-        print("Indexing CRD %s from file %s" % (crd["metadata"]["name"], name))
-
-        title = "%s CRD schema reference" % crd["spec"]["names"]["kind"]
-        
-        body = crd["metadata"]["name"] + "\n"
-
-        for name in crd["spec"]["names"].keys():
-            if type(crd["spec"]["names"][name]) is str:
-                body += crd["spec"]["names"][name] + "\n"
-
-        for version in crd["spec"]["versions"]:
-            body += version["name"] + "\n"
-
-            if "openAPIV3Schema" in version["schema"]:
-                body += "\n".join(collect_properties_text(version["schema"]["openAPIV3Schema"]))
-
-        data = {
-            "title": title,
-            "uri": base_path + crd["metadata"]["name"] + "/",
-            "breadcrumb": [
-                "reference",
-                "cp-k8s-api",
-                crd["metadata"]["name"]
-            ],
-            "body": body,
-            "text": title + "\n" + body,
-        }
-
-        es.index(
-            index=index,
-            doc_type="_doc",
-            id=data["uri"],
-            body=data)
-
-
 def collect_properties_text(schema_dict):
     """
     Recurses into an OpenAPIv3 hierarchy and returns property data valueable for full text indexing.
@@ -497,10 +337,12 @@ if __name__ == "__main__":
     (reponame, _) = os.path.basename(REPOSITORY_URL).split(".")
     main_path = SOURCE_PATH + os.sep + reponame
 
-    path = clone_docs_repos(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
-    if path is None:
-        print("ERROR: Could not clone docs main repository.")
+    cloned = clone_repo(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
+    if cloned is False:
+        print("ERROR: Could not clone docs repository.")
         sys.exit(1)
+
+    path = main_path
 
     # get page data
     if REPOSITORY_SUBFOLDER is not None:
@@ -520,11 +362,6 @@ if __name__ == "__main__":
         },
         # include_type_name=false shall be removed once we are on ES 7 or higher
         include_type_name="false")
-
-    # index CRDs
-    crd_generator_config_path = os.path.join(main_path, "crd-docs-generator-config.yaml")
-    apiextensions_repo_path = os.path.join(SOURCE_PATH, "apiextensions")
-    index_crds(crd_generator_config_path, apiextensions_repo_path, tempindex)
 
     # index API spec
     index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, tempindex)
