@@ -7,7 +7,7 @@ jobs:
   build:
     machine:
       docker_layer_caching: true
-      image: "cimg/python:3.9"
+      image: "ubuntu-2004:202010-01"
 
     steps:
       - checkout
