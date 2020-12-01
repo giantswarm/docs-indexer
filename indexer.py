@@ -8,13 +8,11 @@ from prance import ResolvingParser
 import json
 import logging
 import os
-from pprint import pprint
 import re
 import shutil
 import signal
 import sys
 import time
-import toml
 import tempfile
 import urllib3
 import yaml
@@ -25,7 +23,6 @@ except ImportError:
     print("WARNING: Using pure python YAML without accelaration of C libraries")
     from yaml import Loader
 
-from pprint import pprint
 
 ELASTICSEARCH_INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX_NAME", "docs")
 ELASTICSEARCH_MAPPING = json.load(open("mapping.json", "rb"))
@@ -230,7 +227,6 @@ def index_openapi_spec(uri, base_path, spec_files, index):
 
     # parse spec
     parser = ResolvingParser(tmpdir + os.path.sep + os.path.basename(files[0]))
-    #pprint.pprint(parser.specification["paths"])
 
     for path in parser.specification["paths"]:
         for method in parser.specification["paths"][path]:
