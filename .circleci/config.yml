@@ -15,8 +15,8 @@ jobs:
           name: Run Python unit tests
           command: |
             pip install -r requirements.txt
-            python --version
-            python indexer_test.py
+            python3 --version
+            python3 indexer_test.py
 
       - run:
           name: Install architect
