@@ -1,4 +1,4 @@
-FROM python:3.7-alpine3.12
+FROM python:3.9-alpine
 
 ENV PYTHON_UNBUFFERED 1
 ENV PYTHONWARNINGS "ignore:Unverified HTTPS request"
@@ -8,11 +8,12 @@ RUN set -x \
     && addgroup -g 101 -S indexer \
     && adduser -S -D -u 101 -h /home/indexer -s /sbin/nologin -G indexer -g indexer indexer
 
-RUN apk add --no-cache --update git ca-certificates
+RUN apk add --no-cache --update git ca-certificates yaml-dev build-base
 
 ADD requirements.txt /
-RUN pip install --upgrade pip
-RUN pip install -r /requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --global-option='--with-libyaml' pyyaml && \
+    pip install -r /requirements.txt
 
 WORKDIR /app
 COPY indexer.py /app/
