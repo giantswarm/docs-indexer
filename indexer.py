@@ -352,7 +352,32 @@ if __name__ == "__main__":
         index=tempindex,
         body={
             "settings" : {
-                "number_of_shards" : 1,
+                "index": {
+                    "number_of_shards" : 1,
+                    "analysis": {
+                        "analyzer": {
+                            # 'trigram' and 'reverse' analyzers needed for phrase suggester. See mapping.json.
+                            "trigram": {
+                                "type": "custom",
+                                "tokenizer": "standard",
+                                "filter": ["lowercase", "shingle"]
+                            },
+                            "reverse": {
+                                "type": "custom",
+                                "tokenizer": "standard",
+                                "filter": ["lowercase", "reverse"]
+                            }
+                        },
+                        "filter": {
+                            # 'shingle' filter needed by 'trigram' analyzer.
+                            "shingle": {
+                                "type": "shingle",
+                                "min_shingle_size": 2,
+                                "max_shingle_size": 3
+                            }
+                        }
+                    }
+                }
             },
             "mappings": ELASTICSEARCH_MAPPING
         },
