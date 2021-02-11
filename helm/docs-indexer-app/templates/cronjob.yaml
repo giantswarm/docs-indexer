@@ -41,8 +41,6 @@ spec:
               env:
                 - name: ELASTICSEARCH_ENDPOINT
                   value: http://sitesearch-app:9200/
-                - name: EXTERNAL_REPOSITORY_SUBFOLDER
-                  value: docs
                 - name: REPOSITORY_BRANCH
                   value: master
                 - name: REPOSITORY_SUBFOLDER

@@ -17,7 +17,6 @@ The following environment variables are supported for configuration:
 - `REPOSITORY_URL`: Git repo URL to clone, e. g. `https://github.com/giantswarm/docs.git`
 - `REPOSITORY_BRANCH`: Defaults to `master`
 - `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content
-- `EXTERNAL_REPOSITORY_SUBFOLDER`: Only look into this path within external repositories for indexable content
 - `KEEP_PROCESS_ALIVE`: If set, the process keeps running (sleeping forever) when the job is finished.
 - `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint
 - `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
