@@ -7,8 +7,8 @@ metadata:
 
 # CronJob spec
 spec:
-  # once every hour. We randomly chose :57 to avoid :00.
-  schedule: "57 * * * *"
+  # Every 20 minutes
+  schedule: "5,25,45 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 2
