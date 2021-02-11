@@ -20,12 +20,11 @@ The following environment variables are supported for configuration:
 - `EXTERNAL_REPOSITORY_SUBFOLDER`: Only look into this path within external repositories for indexable content
 - `KEEP_PROCESS_ALIVE`: If set, the process keeps running (sleeping forever) when the job is finished.
 - `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint
-- `ELASTICSEARCH_INDEX_NAME`: Name for the index to create. Defaults to `docs`.
 - `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
 - `APIDOCS_BASE_PATH`: Should be `/api/`
 - `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec
 
-The search mapping for the documents created can be found in `mapping.json`.
+The search mapping for the documents created can be found in `docs_mapping.json`.
 
 ## Usage
 
@@ -34,7 +33,7 @@ shows how to use the container.
 
 ## Elasticsearch schema
 
-This indexer creates an Elasticsearch index with the mapping defined in the file `mapping.json`.
+This indexer creates an Elasticsearch index with the mapping defined in the file `docs_mapping.json`.
 
 Here is some additional information on the index fields:
 

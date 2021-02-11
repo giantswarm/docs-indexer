@@ -17,7 +17,7 @@ RUN pip install --upgrade pip && \
 
 WORKDIR /app
 COPY indexer.py /app/
-COPY mapping.json /app/
+COPY docs_mapping.json /app/
 
 USER 101
 

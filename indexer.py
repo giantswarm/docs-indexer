@@ -24,8 +24,6 @@ except ImportError:
     from yaml import Loader
 
 
-ELASTICSEARCH_INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX_NAME", "docs")
-ELASTICSEARCH_MAPPING = json.load(open("mapping.json", "rb"))
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
 KEEP_PROCESS_ALIVE = os.getenv("KEEP_PROCESS_ALIVE", False)
 REPOSITORY_URL = os.getenv("REPOSITORY_URL")
@@ -39,6 +37,8 @@ API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 # Path to markdown files
 SOURCE_PATH = "/home/indexer/gitcache"
 
+DOCS_INDEX_NAME = "docs"
+DOCS_INDEX_MAPPING = json.load(open("docs_mapping.json", "rb"))
 
 def clone_repo(repo_url, branch, target_path):
     """
@@ -346,7 +346,7 @@ if __name__ == "__main__":
     pages = get_pages(path)
 
     # create new index
-    tempindex = make_indexname(ELASTICSEARCH_INDEX_NAME)
+    tempindex = make_indexname(DOCS_INDEX_NAME)
     
     es.indices.create(
         index=tempindex,
@@ -356,7 +356,7 @@ if __name__ == "__main__":
                     "number_of_shards" : 1,
                     "analysis": {
                         "analyzer": {
-                            # 'trigram' and 'reverse' analyzers needed for phrase suggester. See mapping.json.
+                            # 'trigram' and 'reverse' analyzers needed for phrase suggester. See docs_mapping.json.
                             "trigram": {
                                 "type": "custom",
                                 "tokenizer": "standard",
@@ -379,7 +379,7 @@ if __name__ == "__main__":
                     }
                 }
             },
-            "mappings": ELASTICSEARCH_MAPPING
+            "mappings": DOCS_INDEX_MAPPING
         },
         # include_type_name=false shall be removed once we are on ES 7 or higher
         include_type_name="false")
@@ -392,8 +392,8 @@ if __name__ == "__main__":
         index_page(page["file_path"], page["path"], page["uri"], tempindex)
 
     # remove old index if existed, re-create alias
-    if es.indices.exists_alias(name=ELASTICSEARCH_INDEX_NAME):
-        old_index = es.indices.get_alias(name=ELASTICSEARCH_INDEX_NAME)
+    if es.indices.exists_alias(name=DOCS_INDEX_NAME):
+        old_index = es.indices.get_alias(name=DOCS_INDEX_NAME)
         
         # here we assume there is only one index behind this alias
         old_indices = list(old_index.keys())
@@ -401,7 +401,7 @@ if __name__ == "__main__":
         if len(old_indices) > 0:
             logging.info("Old index on alias is: %s" % old_indices[0])
             try:
-                es.indices.delete_alias(index=old_indices[0], name=ELASTICSEARCH_INDEX_NAME)
+                es.indices.delete_alias(index=old_indices[0], name=DOCS_INDEX_NAME)
             except NotFoundError:
                 logging.error("Could not delete index alias for %s" % old_indices[0])
                 pass
@@ -410,7 +410,7 @@ if __name__ == "__main__":
             except:
                 logging.error("Could not delete index %s" % old_indices[0])
                 pass
-    es.indices.put_alias(index=tempindex, name=ELASTICSEARCH_INDEX_NAME)
+    es.indices.put_alias(index=tempindex, name=DOCS_INDEX_NAME)
 
     if KEEP_PROCESS_ALIVE != False:
         wait_forever()
