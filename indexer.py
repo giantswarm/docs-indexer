@@ -346,7 +346,7 @@ if __name__ == "__main__":
 
 
     full_index_name = f'{DOCS_INDEX_NAME}-{cloned_sha}'
-    if es.indices.exists(name=full_index_name):
+    if es.indices.exists(full_index_name):
         print(f"Index for this docs version {full_index_name} already exists.")
         sys.exit()
 
