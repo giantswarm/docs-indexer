@@ -3,7 +3,7 @@ from datetime import datetime
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
 from markdown import markdown
-from subprocess import call
+from subprocess import call, check_output, STDOUT
 from prance import ResolvingParser
 import json
 import logging
@@ -64,7 +64,13 @@ def clone_repo(repo_url, branch, target_path):
     # check success
     if returncode > 0:
         return False
-    return True
+    
+    # Get the commit SHA we checked out
+    sha = check_output(["git", "-C", f"{target_path}/.git", "rev-parse", "HEAD"],
+                       stderr=STDOUT,
+                       shell=False)
+
+    return sha.strip()
 
 
 def get_pages(root_path):
@@ -288,12 +294,6 @@ def collect_properties_text(schema_dict):
     return ret
 
 
-
-def make_indexname(name_prefix):
-    """creates a random index name"""
-    return name_prefix + "-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-
-
 def wait_forever():
     while True:
         logging.info("Staying alive, doing nothing (KEEP_PROCESS_ALIVE is set).")
@@ -332,8 +332,8 @@ if __name__ == "__main__":
     (reponame, _) = os.path.basename(REPOSITORY_URL).split(".")
     main_path = SOURCE_PATH + os.sep + reponame
 
-    cloned = clone_repo(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
-    if cloned is False:
+    cloned_sha = clone_repo(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
+    if cloned_sha is False:
         print("ERROR: Could not clone docs repository.")
         sys.exit(1)
 
@@ -344,11 +344,15 @@ if __name__ == "__main__":
         path += os.sep + REPOSITORY_SUBFOLDER
     pages = get_pages(path)
 
-    # create new index
-    tempindex = make_indexname(DOCS_INDEX_NAME)
-    
+
+    full_index_name = f'{DOCS_INDEX_NAME}-{cloned_sha}'
+    if es.indices.exists(name=full_index_name):
+        print(f"Index for this docs version {full_index_name} already exists.")
+        sys.exit()
+
+    # create new index    
     es.indices.create(
-        index=tempindex,
+        index=full_index_name,
         body={
             "settings" : {
                 "index": {
@@ -384,11 +388,11 @@ if __name__ == "__main__":
         include_type_name="false")
 
     # index API spec
-    index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, tempindex)
+    index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
 
     # index docs pages
     for page in pages:
-        index_page(page["file_path"], page["path"], page["uri"], tempindex)
+        index_page(page["file_path"], page["path"], page["uri"], full_index_name)
 
     # remove old index if existed, re-create alias
     if es.indices.exists_alias(name=DOCS_INDEX_NAME):
@@ -409,7 +413,7 @@ if __name__ == "__main__":
             except:
                 logging.error("Could not delete index %s" % old_indices[0])
                 pass
-    es.indices.put_alias(index=tempindex, name=DOCS_INDEX_NAME)
+    es.indices.put_alias(index=full_index_name, name=DOCS_INDEX_NAME)
 
     if KEEP_PROCESS_ALIVE != False:
         wait_forever()
