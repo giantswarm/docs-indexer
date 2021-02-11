@@ -70,7 +70,7 @@ def clone_repo(repo_url, branch, target_path):
                        stderr=STDOUT,
                        shell=False)
 
-    return sha.strip()
+    return str(sha).strip()
 
 
 def get_pages(root_path):
