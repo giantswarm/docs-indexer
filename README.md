@@ -14,7 +14,6 @@ There is a helm chart in the `helm` subfolder.
 
 The following environment variables are supported for configuration:
 
-- `REPOSITORY_URL`: Git repo URL to clone, e. g. `https://github.com/giantswarm/docs.git`
 - `REPOSITORY_BRANCH`: Defaults to `master`
 - `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content
 - `KEEP_PROCESS_ALIVE`: If set, the process keeps running (sleeping forever) when the job is finished.

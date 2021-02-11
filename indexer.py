@@ -26,7 +26,6 @@ except ImportError:
 
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
 KEEP_PROCESS_ALIVE = os.getenv("KEEP_PROCESS_ALIVE", False)
-REPOSITORY_URL = os.getenv("REPOSITORY_URL")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "master")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
 APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI")
@@ -36,6 +35,8 @@ API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 # Path to markdown files
 SOURCE_PATH = "/home/indexer/gitcache"
 
+REPOSITORY_HANDLE = 'giantswarm/docs'
+REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
 DOCS_INDEX_NAME = "docs"
 DOCS_INDEX_MAPPING = json.load(open("docs_mapping.json", "rb"))
 

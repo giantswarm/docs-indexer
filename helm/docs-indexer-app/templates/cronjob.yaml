@@ -45,8 +45,6 @@ spec:
                   value: master
                 - name: REPOSITORY_SUBFOLDER
                   value: src/content
-                - name: REPOSITORY_URL
-                  value: https://github.com/giantswarm/docs.git
                 - name: APIDOCS_BASE_URI
                   value: https://docs.giantswarm.io/api/
                 - name: APIDOCS_BASE_PATH
