@@ -37,6 +37,7 @@ SOURCE_PATH = "/home/indexer/gitcache"
 
 REPOSITORY_HANDLE = 'giantswarm/docs'
 REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
+
 DOCS_INDEX_NAME = "docs"
 DOCS_INDEX_MAPPING = json.load(open("docs_mapping.json", "rb"))
 
@@ -304,6 +305,7 @@ def sigterm_handler(_signo, _stack_frame):
     logging.info("Terminating due to SIGTERM")
     sys.exit(0)
 
+
 if __name__ == "__main__":
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
@@ -317,6 +319,12 @@ if __name__ == "__main__":
     ch.setFormatter(formatter)
     root.addHandler(ch)
 
+    logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA')
+    http = urllib3.PoolManager()
+    req = http.request("GET", f'https://api.github.com/repos/{REPOSITORY_HANDLE}/commits/master')
+    data = json.loads(req.data.decode())
+    logging.info(f'Last {REPOSITORY_HANDLE} commit SHA is {data["sha"]}')
+
     if ELASTICSEARCH_ENDPOINT is None:
         logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
         if KEEP_PROCESS_ALIVE != False:
@@ -329,14 +337,26 @@ if __name__ == "__main__":
 
     es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
 
+    # Test early whether this index already exists
+    if es.indices.exists(f'{DOCS_INDEX_NAME}-{data["sha"]}'):
+        logging.info(f'Index for docs version {data["sha"]} already exists.')
+        sys.exit()
+
     # repo name from URL
     (reponame, _) = os.path.basename(REPOSITORY_URL).split(".")
     main_path = SOURCE_PATH + os.sep + reponame
 
     cloned_sha = clone_repo(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
     if cloned_sha is False:
-        print("ERROR: Could not clone docs repository.")
+        logging.error("ERROR: Could not clone docs repository.")
         sys.exit(1)
+    
+    # Check again with cloned SHA whether index exist
+    # (just in case we got a different SHA than before)
+    full_index_name = f'{DOCS_INDEX_NAME}-{cloned_sha}'
+    if es.indices.exists(full_index_name):
+        logging.info(f'Index {full_index_name} already exists.')
+        sys.exit()
 
     path = main_path
 
@@ -344,12 +364,6 @@ if __name__ == "__main__":
     if REPOSITORY_SUBFOLDER is not None:
         path += os.sep + REPOSITORY_SUBFOLDER
     pages = get_pages(path)
-
-
-    full_index_name = f'{DOCS_INDEX_NAME}-{cloned_sha}'
-    if es.indices.exists(full_index_name):
-        print(f"Index for this docs version {full_index_name} already exists.")
-        sys.exit()
 
     # create new index    
     es.indices.create(
