@@ -3,7 +3,7 @@ from datetime import datetime
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
 from markdown import markdown
-from subprocess import call
+from subprocess import call, check_output, STDOUT
 from prance import ResolvingParser
 import json
 import logging
@@ -24,14 +24,10 @@ except ImportError:
     from yaml import Loader
 
 
-ELASTICSEARCH_INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX_NAME", "docs")
-ELASTICSEARCH_MAPPING = json.load(open("mapping.json", "rb"))
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
 KEEP_PROCESS_ALIVE = os.getenv("KEEP_PROCESS_ALIVE", False)
-REPOSITORY_URL = os.getenv("REPOSITORY_URL")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "master")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
-EXTERNAL_REPOSITORY_SUBFOLDER = os.getenv("EXTERNAL_REPOSITORY_SUBFOLDER")
 APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI")
 APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH")
 API_SPEC_FILES = os.getenv("API_SPEC_FILES")
@@ -39,6 +35,11 @@ API_SPEC_FILES = os.getenv("API_SPEC_FILES")
 # Path to markdown files
 SOURCE_PATH = "/home/indexer/gitcache"
 
+REPOSITORY_HANDLE = 'giantswarm/docs'
+REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
+
+DOCS_INDEX_NAME = "docs"
+DOCS_INDEX_MAPPING = json.load(open("docs_mapping.json", "rb"))
 
 def clone_repo(repo_url, branch, target_path):
     """
@@ -65,7 +66,13 @@ def clone_repo(repo_url, branch, target_path):
     # check success
     if returncode > 0:
         return False
-    return True
+    
+    # Get the commit SHA we checked out
+    sha = check_output(["git", "-C", f"{target_path}/.git", "rev-parse", "HEAD"],
+                       stderr=STDOUT,
+                       shell=False)
+
+    return sha.decode().strip()
 
 
 def get_pages(root_path):
@@ -289,12 +296,6 @@ def collect_properties_text(schema_dict):
     return ret
 
 
-
-def make_indexname(name_prefix):
-    """creates a random index name"""
-    return name_prefix + "-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-
-
 def wait_forever():
     while True:
         logging.info("Staying alive, doing nothing (KEEP_PROCESS_ALIVE is set).")
@@ -303,6 +304,7 @@ def wait_forever():
 def sigterm_handler(_signo, _stack_frame):
     logging.info("Terminating due to SIGTERM")
     sys.exit(0)
+
 
 if __name__ == "__main__":
     root = logging.getLogger()
@@ -317,6 +319,12 @@ if __name__ == "__main__":
     ch.setFormatter(formatter)
     root.addHandler(ch)
 
+    logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA')
+    http = urllib3.PoolManager()
+    req = http.request("GET", f'https://api.github.com/repos/{REPOSITORY_HANDLE}/commits/master')
+    data = json.loads(req.data.decode())
+    logging.info(f'Last {REPOSITORY_HANDLE} commit SHA is {data["sha"]}')
+
     if ELASTICSEARCH_ENDPOINT is None:
         logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
         if KEEP_PROCESS_ALIVE != False:
@@ -329,14 +337,26 @@ if __name__ == "__main__":
 
     es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
 
+    # Test early whether this index already exists
+    if es.indices.exists(f'{DOCS_INDEX_NAME}-{data["sha"]}'):
+        logging.info(f'Index for docs version {data["sha"]} already exists.')
+        sys.exit()
+
     # repo name from URL
     (reponame, _) = os.path.basename(REPOSITORY_URL).split(".")
     main_path = SOURCE_PATH + os.sep + reponame
 
-    cloned = clone_repo(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
-    if cloned is False:
-        print("ERROR: Could not clone docs repository.")
+    cloned_sha = clone_repo(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
+    if cloned_sha is False:
+        logging.error("ERROR: Could not clone docs repository.")
         sys.exit(1)
+    
+    # Check again with cloned SHA whether index exist
+    # (just in case we got a different SHA than before)
+    full_index_name = f'{DOCS_INDEX_NAME}-{cloned_sha}'
+    if es.indices.exists(full_index_name):
+        logging.info(f'Index {full_index_name} already exists.')
+        sys.exit()
 
     path = main_path
 
@@ -345,18 +365,16 @@ if __name__ == "__main__":
         path += os.sep + REPOSITORY_SUBFOLDER
     pages = get_pages(path)
 
-    # create new index
-    tempindex = make_indexname(ELASTICSEARCH_INDEX_NAME)
-    
+    # create new index    
     es.indices.create(
-        index=tempindex,
+        index=full_index_name,
         body={
             "settings" : {
                 "index": {
                     "number_of_shards" : 1,
                     "analysis": {
                         "analyzer": {
-                            # 'trigram' and 'reverse' analyzers needed for phrase suggester. See mapping.json.
+                            # 'trigram' and 'reverse' analyzers needed for phrase suggester. See docs_mapping.json.
                             "trigram": {
                                 "type": "custom",
                                 "tokenizer": "standard",
@@ -379,21 +397,21 @@ if __name__ == "__main__":
                     }
                 }
             },
-            "mappings": ELASTICSEARCH_MAPPING
+            "mappings": DOCS_INDEX_MAPPING
         },
         # include_type_name=false shall be removed once we are on ES 7 or higher
         include_type_name="false")
 
     # index API spec
-    index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, tempindex)
+    index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
 
     # index docs pages
     for page in pages:
-        index_page(page["file_path"], page["path"], page["uri"], tempindex)
+        index_page(page["file_path"], page["path"], page["uri"], full_index_name)
 
     # remove old index if existed, re-create alias
-    if es.indices.exists_alias(name=ELASTICSEARCH_INDEX_NAME):
-        old_index = es.indices.get_alias(name=ELASTICSEARCH_INDEX_NAME)
+    if es.indices.exists_alias(name=DOCS_INDEX_NAME):
+        old_index = es.indices.get_alias(name=DOCS_INDEX_NAME)
         
         # here we assume there is only one index behind this alias
         old_indices = list(old_index.keys())
@@ -401,7 +419,7 @@ if __name__ == "__main__":
         if len(old_indices) > 0:
             logging.info("Old index on alias is: %s" % old_indices[0])
             try:
-                es.indices.delete_alias(index=old_indices[0], name=ELASTICSEARCH_INDEX_NAME)
+                es.indices.delete_alias(index=old_indices[0], name=DOCS_INDEX_NAME)
             except NotFoundError:
                 logging.error("Could not delete index alias for %s" % old_indices[0])
                 pass
@@ -410,7 +428,7 @@ if __name__ == "__main__":
             except:
                 logging.error("Could not delete index %s" % old_indices[0])
                 pass
-    es.indices.put_alias(index=tempindex, name=ELASTICSEARCH_INDEX_NAME)
+    es.indices.put_alias(index=full_index_name, name=DOCS_INDEX_NAME)
 
     if KEEP_PROCESS_ALIVE != False:
         wait_forever()
