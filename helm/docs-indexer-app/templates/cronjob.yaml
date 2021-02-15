@@ -54,6 +54,13 @@ spec:
               volumeMounts:
                 - name: cache
                   mountPath: /home/indexer/gitcache
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 100M
+                limits:
+                  cpu: 100m
+                  memory: 100M
           volumes:
             - name: cache
               emptyDir: {}
