@@ -16,8 +16,8 @@ RUN pip install --upgrade pip && \
     pip install -r /requirements.txt
 
 WORKDIR /app
-COPY docs_mapping.json /app/
 COPY *.py /app/
+COPY mappings /app/mappings
 
 USER 101
 
