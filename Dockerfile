@@ -16,9 +16,9 @@ RUN pip install --upgrade pip && \
     pip install -r /requirements.txt
 
 WORKDIR /app
-COPY indexer.py /app/
 COPY docs_mapping.json /app/
+COPY *.py /app/
 
 USER 101
 
-ENTRYPOINT ["python", "indexer.py"]
+ENTRYPOINT ["python", "main.py"]
