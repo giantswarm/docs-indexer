@@ -1,0 +1,47 @@
+{
+  "properties": {
+    "title": {
+      "type": "text",
+      "store": true,
+      "term_vector": "with_positions_offsets",
+      "analyzer": "english"
+    },
+    "uri": {
+      "type": "keyword",
+      "store": true
+    },
+    "image_uri": {
+      "type": "keyword",
+      "store": true
+    },
+    "breadcrumb": {
+      "type": "text",
+      "store": true
+    },
+    "body": {
+      "type": "text",
+      "store": true,
+      "term_vector": "with_positions_offsets",
+      "analyzer": "english"
+    },
+    "text": {
+      "type": "text",
+      "store": true,
+      "fields": {
+        "english": {
+          "type": "text",
+          "term_vector": "with_positions_offsets",
+          "analyzer": "english"
+        },
+        "trigram": {
+          "type": "text",
+          "analyzer": "trigram"
+        },
+        "reverse": {
+          "type": "text",
+          "analyzer": "reverse"
+        }
+      }
+    }
+  }
+}
