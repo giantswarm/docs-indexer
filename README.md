@@ -14,6 +14,21 @@ It covers:
 
 There is a helm chart in the `helm` subfolder.
 
+Note: A separate secret is required for the `HUBSPOT_API_KEY` environment variable:
+
+```yaml
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: hubspot-api-key
+  namespace: docs
+  labels:
+    app: docs-indexer
+data:
+  hubspot-api-key: REDACTED
+```
+
 ## Configuration
 
 The following environment variables are required for configuration:
