@@ -97,7 +97,7 @@ spec:
           ttlSecondsAfterFinished: 3600
           containers:
             - name: {{ .Values.image.name }}
-              args: ["docs"]
+              args: ["blog"]
               # This image is supposed to be publicly accessible
               image: quay.io/giantswarm/{{ .Values.image.name }}:{{ .Values.image.sha }}
               env:
