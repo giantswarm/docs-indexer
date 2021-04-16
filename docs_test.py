@@ -1,5 +1,5 @@
 import unittest
-from indexer import get_front_matter
+from docs import get_front_matter
 
 doc_with_yaml_front_matter = """---
 title: Node Pools
