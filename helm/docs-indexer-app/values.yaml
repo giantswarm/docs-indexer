@@ -4,3 +4,4 @@ image:
   name: docs-indexer
   tag: "[[.Version]]"
   sha: "[[.SHA]]"
+elasticsearchEndpoint: "http://sitesearch-app:9200/"
