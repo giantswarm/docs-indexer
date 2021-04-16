@@ -2,9 +2,13 @@
 
 # docs-indexer
 
-Indexes content for the search engine of [docs.giantswarm.io](https://docs.giantswarm.io/).
+Indexes content for the search engine available in [docs.giantswarm.io](https://docs.giantswarm.io/).
 
-As a source, this takes a public GitHub repository. As a target, an Elasticsearch API endpoint is used.
+It covers:
+
+- Documentation ([docs.giantswarm.io](https://docs.giantswarm.io/))
+  - REST API documentation ([docs.giantswarm.io/api/](https://docs.giantswarm.io/api/))
+- Blog posts ([www.giantswarm.io/blog](https://www.giantswarm.io/blog))
 
 ## App
 
@@ -12,17 +16,18 @@ There is a helm chart in the `helm` subfolder.
 
 ## Configuration
 
-The following environment variables are supported for configuration:
+The following environment variables are required for configuration:
+
+- `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint
+- `HUBSPOT_API_KEY`: Hubspot API key for blog indexing.
+
+These environment varilables may be set in order to override defaults, especially for development:
 
 - `REPOSITORY_BRANCH`: Defaults to `master`
 - `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content
-- `KEEP_PROCESS_ALIVE`: If set, the process keeps running (sleeping forever) when the job is finished.
-- `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint
 - `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
 - `APIDOCS_BASE_PATH`: Should be `/api/`
 - `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec
-
-The search mapping for the documents created can be found in `docs_mapping.json`.
 
 ## Usage
 
@@ -31,7 +36,7 @@ shows how to use the container.
 
 ## Elasticsearch schema
 
-This indexer creates an Elasticsearch index with the mapping defined in the file `docs_mapping.json`.
+This indexers create Elasticsearch indices with the mappings defined in the files `mappings/*.json`.
 
 Here is some additional information on the index fields:
 
@@ -41,3 +46,5 @@ Here is some additional information on the index fields:
 - `title`: The title of the document, as intended for representation as a main headline of a search result item. If a document provides several titles, this is supposed to be what users would consider the main headline of the article, or what contains the most valuable content to search for.
 - `body`: All text from the main page, excluding the first headline (which is expected to resemble the `title` content).
 - `text`: catch-all field. Used for generic search queries where no specific field is selected for a match.
+- `image_uri`: URL of an image for the entry (optional).
+- `published`: Publish date for the entry (optional).
