@@ -1,4 +1,3 @@
-from bs4 import BeautifulSoup
 from datetime import datetime
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
@@ -10,7 +9,6 @@ import logging
 import os
 import re
 import shutil
-import signal
 import sys
 import time
 import tempfile
@@ -23,23 +21,25 @@ except ImportError:
     print("WARNING: Using pure python YAML without accelaration of C libraries")
     from yaml import Loader
 
+from common import html2text
+from common import index_settings
 
-ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
-KEEP_PROCESS_ALIVE = os.getenv("KEEP_PROCESS_ALIVE", False)
+ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "master")
-REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
-APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI")
-APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH")
-API_SPEC_FILES = os.getenv("API_SPEC_FILES")
+REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER", "src/content")
+APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI", "https://docs.giantswarm.io/api/")
+APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH", "/api/")
+API_SPEC_FILES = os.getenv("API_SPEC_FILES", "yaml/spec.yaml,yaml/definitions.yaml,yaml/parameters.yaml,yaml/responses.yaml")
+WORKDIR = os.getenv("WORKDIR", "/home/indexer")
 
 # Path to markdown files
-SOURCE_PATH = "/home/indexer/gitcache"
+SOURCE_PATH = f'{WORKDIR}/gitcache'
 
 REPOSITORY_HANDLE = 'giantswarm/docs'
 REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
 
 DOCS_INDEX_NAME = "docs"
-DOCS_INDEX_MAPPING = json.load(open("docs_mapping.json", "rb"))
+DOCS_INDEX_MAPPING = json.load(open("mappings/docs.json", "rb"))
 
 def clone_repo(repo_url, branch, target_path):
     """
@@ -119,7 +119,7 @@ def get_pages(root_path):
 def markdown_to_text(markdown_text):
     """expects markdown unicode"""
     html = markdown(markdown_text)
-    text = ''.join(BeautifulSoup(html, features="html.parser").findAll(text=True))
+    text = html2text(html)
     text = text.replace(" | ", " ")
     text = re.sub(r"[\-]{3,}", "-", text)  # markdown tables
     return text
@@ -157,10 +157,11 @@ def get_front_matter(source_text, path):
     return (None, None)
 
 
-def index_page(path, breadcrumb, uri, index):
+def index_page(es, path, breadcrumb, uri, index):
     """
     Send one page to elasticsearch. Arguments:
 
+    es: elasticsearch.Elasticsearch client instance
     path: File path
     breadcrumb: structured path (list of segments)
     uri: The URI
@@ -214,9 +215,13 @@ def index_page(path, breadcrumb, uri, index):
         logging.error(f'Error when indexing page {uri}: {e}')
 
 
-def index_openapi_spec(uri, base_path, spec_files, index):
+def index_openapi_spec(es, uri, base_path, spec_files, index):
     """
     Indexes our API docs based on the Open API specification YAML
+
+    Params:
+
+    es: elasticsearch.Elasticsearch client instance
     """
     files = spec_files.split(",")
     tmpdir = tempfile.mkdtemp()
@@ -296,29 +301,31 @@ def collect_properties_text(schema_dict):
     return ret
 
 
-def wait_forever():
-    while True:
-        logging.info("Staying alive, doing nothing (KEEP_PROCESS_ALIVE is set).")
-        time.sleep(60*60*24)
+def check_index(es, index_name):
+    """
+    Check if the index already exists
+    """
+    # Test whether this index already exists
+    if es.indices.exists(index_name):
+        logging.info(f'Index {index_name} already exists.')
+        sys.exit()
 
-def sigterm_handler(_signo, _stack_frame):
-    logging.info("Terminating due to SIGTERM")
-    sys.exit(0)
+
+def ensure_index(es, index_name):
+        es.indices.create(
+            index=index_name,
+            body={
+                "settings" : index_settings,
+                "mappings": DOCS_INDEX_MAPPING
+            },
+            # include_type_name=false shall be removed once we are on ES 7 or higher
+            include_type_name="false")
 
 
-if __name__ == "__main__":
-    root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
-
-    signal.signal(signal.SIGTERM, sigterm_handler)
-
-    # logging setup
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    root.addHandler(ch)
-
+def run():
+    """
+    Main function executing docs and api-spec indexing
+    """
     logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA')
     http = urllib3.PoolManager()
     req = http.request("GET", f'https://api.github.com/repos/{REPOSITORY_HANDLE}/commits/master')
@@ -327,20 +334,29 @@ if __name__ == "__main__":
 
     if ELASTICSEARCH_ENDPOINT is None:
         logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
-        if KEEP_PROCESS_ALIVE != False:
-            wait_forever()
-        else:
-            sys.exit(1)
+        sys.exit(1)
+
+    if APIDOCS_BASE_URI is None:
+        logging.error("APIDOCS_BASE_URI isn't configured.")
+        sys.exit(1)
+
+    if APIDOCS_BASE_PATH is None:
+        logging.error("APIDOCS_BASE_PATH isn't configured.")
+        sys.exit(1)
+
+    if API_SPEC_FILES is None:
+        logging.error("API_SPEC_FILES isn't configured.")
+        sys.exit(1)
 
     # give elasticsearch some time
     time.sleep(3)
 
     es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
 
-    # Test early whether this index already exists
-    if es.indices.exists(f'{DOCS_INDEX_NAME}-{data["sha"]}'):
-        logging.info(f'Index for docs version {data["sha"]} already exists.')
-        sys.exit()
+    index_name = f'{DOCS_INDEX_NAME}-{data["sha"]}'
+
+    # Check index existence, exit if exists
+    check_index(es, index_name)
 
     # repo name from URL
     (reponame, _) = os.path.basename(REPOSITORY_URL).split(".")
@@ -354,9 +370,7 @@ if __name__ == "__main__":
     # Check again with cloned SHA whether index exist
     # (just in case we got a different SHA than before)
     full_index_name = f'{DOCS_INDEX_NAME}-{cloned_sha}'
-    if es.indices.exists(full_index_name):
-        logging.info(f'Index {full_index_name} already exists.')
-        sys.exit()
+    check_index(es, full_index_name)
 
     path = main_path
 
@@ -365,49 +379,15 @@ if __name__ == "__main__":
         path += os.sep + REPOSITORY_SUBFOLDER
     pages = get_pages(path)
 
-    # create new index    
-    es.indices.create(
-        index=full_index_name,
-        body={
-            "settings" : {
-                "index": {
-                    "number_of_shards" : 1,
-                    "analysis": {
-                        "analyzer": {
-                            # 'trigram' and 'reverse' analyzers needed for phrase suggester. See docs_mapping.json.
-                            "trigram": {
-                                "type": "custom",
-                                "tokenizer": "standard",
-                                "filter": ["lowercase", "shingle"]
-                            },
-                            "reverse": {
-                                "type": "custom",
-                                "tokenizer": "standard",
-                                "filter": ["lowercase", "reverse"]
-                            }
-                        },
-                        "filter": {
-                            # 'shingle' filter needed by 'trigram' analyzer.
-                            "shingle": {
-                                "type": "shingle",
-                                "min_shingle_size": 2,
-                                "max_shingle_size": 3
-                            }
-                        }
-                    }
-                }
-            },
-            "mappings": DOCS_INDEX_MAPPING
-        },
-        # include_type_name=false shall be removed once we are on ES 7 or higher
-        include_type_name="false")
+    # create new index
+    ensure_index(es, full_index_name)
 
     # index API spec
-    index_openapi_spec(APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
+    index_openapi_spec(es, APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
 
     # index docs pages
     for page in pages:
-        index_page(page["file_path"], page["path"], page["uri"], full_index_name)
+        index_page(es, page["file_path"], page["path"], page["uri"], full_index_name)
 
     # remove old index if existed, re-create alias
     if es.indices.exists_alias(name=DOCS_INDEX_NAME):
@@ -430,5 +410,3 @@ if __name__ == "__main__":
                 pass
     es.indices.put_alias(index=full_index_name, name=DOCS_INDEX_NAME)
 
-    if KEEP_PROCESS_ALIVE != False:
-        wait_forever()

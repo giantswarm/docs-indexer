@@ -44,6 +44,14 @@ rules:
   - podsecuritypolicies
   verbs:
   - use
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  resourceNames:
+  - hubspot-api-key
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
