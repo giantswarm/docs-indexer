@@ -24,7 +24,7 @@
       "term_vector": "with_positions_offsets",
       "analyzer": "english"
     },
-    "published": {
+    "date": {
       "type": "date"
     },
     "text": {

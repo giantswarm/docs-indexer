@@ -81,7 +81,7 @@ def parse_blog_post(post):
         'breadcrumb': ['blog'],
         'breadcrumb_1': 'blog',
         'uri': post['url'],
-        'published': parse_date(post['created']),
+        'date': parse_date(post['created']),
         'title': title,
         'image_uri': post['featuredImage'],
         'body': body,

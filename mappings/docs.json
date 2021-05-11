@@ -20,6 +20,9 @@
       "term_vector": "with_positions_offsets",
       "analyzer": "english"
     },
+    "date": {
+      "type": "date"
+    },
     "text": {
       "type": "text",
       "store": true,
