@@ -4,6 +4,7 @@ from elasticsearch.exceptions import NotFoundError
 from markdown import markdown
 from subprocess import call, check_output, STDOUT
 from prance import ResolvingParser
+import git
 import json
 import logging
 import os
@@ -14,6 +15,8 @@ import time
 import tempfile
 import urllib3
 import yaml
+
+from pprint import pprint
 
 try:
     from yaml import CLoader as Loader
@@ -41,9 +44,13 @@ REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
 DOCS_INDEX_NAME = "docs"
 DOCS_INDEX_MAPPING = json.load(open("mappings/docs.json", "rb"))
 
+# The date to use if the source does not provide a document
+# published/last modified date
+DEFAULT_DATE = datetime(1900, 1, 1, 0, 0, 0)
+
 def clone_repo(repo_url, branch, target_path):
     """
-    Create a shallow clone of a git repository using a certain branch/tag in
+    Create a clone with complete history of a git repository using a certain branch/tag in
     a given target folder. If the target folder exists, it will be removed
     first and then created again.
     """
@@ -58,7 +65,6 @@ def clone_repo(repo_url, branch, target_path):
     os.makedirs(target_path, exist_ok=True)
 
     cmd = ["git", "clone", "-q",
-           "--depth", "1",
            "-b", branch,
            repo_url, target_path]
     returncode = call(cmd)
@@ -74,6 +80,29 @@ def clone_repo(repo_url, branch, target_path):
 
     return sha.decode().strip()
 
+
+def get_last_modified(path):
+    """
+    Traverses a git repository clone under the given path and
+    returns a dict of last modified dates, based on the last
+    commit to each Markdown file. This requires a git repo clone
+    with full history (no shallow clone).
+    """
+    out = {}
+
+    logging.info(f"Path is {path}")
+
+    repo = git.Repo(path)
+    tree = repo.tree()
+    
+    for blob in tree.traverse():
+        if not blob.path.endswith(".md"):
+            continue
+        gen = list(repo.iter_commits(paths=blob.path, max_count=1))
+        commit = gen[0]
+        out[blob.path] = datetime.fromtimestamp(commit.committed_date)
+    
+    return out
 
 def get_pages(root_path):
     """
@@ -95,7 +124,7 @@ def get_pages(root_path):
         if "img" in dirs:
             dirs.remove("img")
         for filename in files:
-            if filename[-3:] != ".md":
+            if not filename.endswith(".md"):
                 continue
 
             path = root.split(os.sep)[num_root_elements:]
@@ -157,15 +186,16 @@ def get_front_matter(source_text, path):
     return (None, None)
 
 
-def index_page(es, path, breadcrumb, uri, index):
+def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     """
     Send one page to elasticsearch. Arguments:
 
-    es: elasticsearch.Elasticsearch client instance
-    path: File path
+    es:         elasticsearch.Elasticsearch client instance
+    root_path:  Root path of the content repository
+    path:       File path
     breadcrumb: structured path (list of segments)
-    uri: The URI
-    index: Elasticsearch index to write to
+    uri:        The URI
+    index:      Elasticsearch index to write to
     """
     # get document body
     with open(path, "r") as file_handler:
@@ -187,6 +217,14 @@ def index_page(es, path, breadcrumb, uri, index):
     data["uri"] = uri
     data["breadcrumb"] = breadcrumb
     data["body"] = text
+
+    data["date"] = DEFAULT_DATE.isoformat() + "+00:00"
+
+    relative_path = path[len(root_path + "/"):]
+    if relative_path in last_modified:
+        data["date"] = last_modified[relative_path].isoformat() + "+00:00"
+    else:
+        logging.info(f"File {relative_path} not contained in last_modified")
 
     # catch-all text field
     if "title" in data:
@@ -272,6 +310,7 @@ def index_openapi_spec(es, uri, base_path, spec_files, index):
                 "breadcrumb": breadcrumb,
                 "body": body,
                 "text": text,
+                "date": DEFAULT_DATE.isoformat() + "+00:00",
             }
             es.index(
                 index=index,
@@ -367,6 +406,8 @@ def run():
         logging.error("ERROR: Could not clone docs repository.")
         sys.exit(1)
     
+    last_modified = get_last_modified(main_path)
+    
     # Check again with cloned SHA whether index exist
     # (just in case we got a different SHA than before)
     full_index_name = f'{DOCS_INDEX_NAME}-{cloned_sha}'
@@ -387,7 +428,7 @@ def run():
 
     # index docs pages
     for page in pages:
-        index_page(es, page["file_path"], page["path"], page["uri"], full_index_name)
+        index_page(es, main_path, page["file_path"], page["path"], page["uri"], full_index_name, last_modified)
 
     # remove old index if existed, re-create alias
     if es.indices.exists_alias(name=DOCS_INDEX_NAME):
