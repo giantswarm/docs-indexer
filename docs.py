@@ -218,13 +218,8 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     data["breadcrumb"] = breadcrumb
     data["body"] = text
 
-    data["date"] = DEFAULT_DATE.isoformat() + "+00:00"
-
     relative_path = path[len(root_path + "/"):]
-    if relative_path in last_modified:
-        data["date"] = last_modified[relative_path].isoformat() + "+00:00"
-    else:
-        logging.info(f"File {relative_path} not contained in last_modified")
+    data["date"] = last_modified.get(relative_path, DEFAULT_DATE.isoformat() + "+00:00")
 
     # catch-all text field
     if "title" in data:
