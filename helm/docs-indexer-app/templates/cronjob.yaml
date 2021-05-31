@@ -110,10 +110,10 @@ spec:
                       key: hubspot-api-key
               resources:
                 requests:
-                  cpu: 100m
+                  cpu: 500m
                   memory: 100M
                 limits:
-                  cpu: 100m
+                  cpu: 500m
                   memory: 100M
           restartPolicy: OnFailure
           serviceAccount: {{ .Values.name }}
