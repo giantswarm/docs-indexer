@@ -49,10 +49,10 @@ spec:
                   mountPath: /home/indexer/gitcache
               resources:
                 requests:
-                  cpu: 100m
+                  cpu: 500m
                   memory: 100M
                 limits:
-                  cpu: 100m
+                  cpu: 500m
                   memory: 100M
           volumes:
             - name: cache
