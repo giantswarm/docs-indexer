@@ -38,7 +38,7 @@ The following environment variables are required for configuration:
 
 These environment varilables may be set in order to override defaults, especially for development:
 
-- `REPOSITORY_BRANCH`: Defaults to `master`
+- `REPOSITORY_BRANCH`: Defaults to `main`
 - `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content
 - `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
 - `APIDOCS_BASE_PATH`: Should be `/api/`
@@ -46,7 +46,7 @@ These environment varilables may be set in order to override defaults, especiall
 
 ## Usage
 
-[This docker-compose configuration](https://github.com/giantswarm/docs/blob/master/docker-compose.yaml)
+[This docker-compose configuration](https://github.com/giantswarm/docs/blob/main/docker-compose.yaml)
 shows how to use the container.
 
 ## Elasticsearch schema
