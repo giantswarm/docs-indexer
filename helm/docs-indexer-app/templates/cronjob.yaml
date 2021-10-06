@@ -1,6 +1,6 @@
 ---
 # Indexer cronjob for docs, api-spec
-apiVersion: batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 
 metadata:
@@ -62,7 +62,7 @@ spec:
           serviceAccountName: {{ .Values.name }}
 ---
 # Indexer cronjob for blog posts
-apiVersion: batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 
 metadata:
