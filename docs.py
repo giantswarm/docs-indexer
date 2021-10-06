@@ -28,7 +28,7 @@ from common import html2text
 from common import index_settings
 
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/")
-REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "master")
+REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER", "src/content")
 APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI", "https://docs.giantswarm.io/api/")
 APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH", "/api/")
@@ -362,7 +362,7 @@ def run():
     """
     logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA')
     http = urllib3.PoolManager()
-    req = http.request("GET", f'https://api.github.com/repos/{REPOSITORY_HANDLE}/commits/master')
+    req = http.request("GET", f'https://api.github.com/repos/{REPOSITORY_HANDLE}/commits/{REPOSITORY_BRANCH}')
     data = json.loads(req.data.decode())
     logging.info(f'Last {REPOSITORY_HANDLE} commit SHA is {data["sha"]}')
 
