@@ -19,7 +19,10 @@ jobs:
 workflows:
   publish:
     jobs:
-      - build-and-test
+      - build-and-test:
+          filters:
+            tags:
+              only: /^v.*/
       - architect/push-to-docker:
           name: push-to-quay
           context: architect
