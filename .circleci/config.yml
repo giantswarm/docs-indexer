@@ -25,6 +25,8 @@ workflows:
           image: quay.io/giantswarm/docs-indexer
           username_envar: QUAY_USERNAME
           password_envar: QUAY_PASSWORD
+          requires:
+            - build_and_test
           # Needed to trigger job also on git tag.
           filters:
             tags:
