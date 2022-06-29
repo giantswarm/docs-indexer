@@ -73,8 +73,8 @@ spec:
   # Once a day on workdays at 08:51
   schedule: "51 8 * * MON-FRI"
   concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 2
-  failedJobsHistoryLimit: 2
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
   
   jobTemplate:
     # Job Spec
