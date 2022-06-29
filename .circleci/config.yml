@@ -5,7 +5,7 @@ orbs:
   python: circleci/python@2.0.3
 
 jobs:
-  build_and_test:
+  build-and-test:
     executor: python/default
 
     steps:
@@ -19,7 +19,7 @@ jobs:
 workflows:
   publish:
     jobs:
-      - build_and_test
+      - build-and-test
       - architect/push-to-docker:
           name: push-to-quay
           context: architect
@@ -27,7 +27,7 @@ workflows:
           username_envar: QUAY_USERNAME
           password_envar: QUAY_PASSWORD
           requires:
-            - build_and_test
+            - build-and-test
           # Needed to trigger job also on git tag.
           filters:
             tags:
