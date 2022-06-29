@@ -49,8 +49,8 @@ spec:
                   mountPath: /home/indexer/gitcache
               resources:
                 requests:
-                  cpu: 500m
-                  memory: 100M
+                  cpu: 200m
+                  memory: 50M
                 limits:
                   cpu: 1000m
                   memory: 500M
