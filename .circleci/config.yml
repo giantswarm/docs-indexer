@@ -1,56 +1,46 @@
 version: 2.1
 
 orbs:
-  architect: giantswarm/architect@2.7.0
+  architect: giantswarm/architect@4.16.0
+  python: circleci/python@2.0.3
 
 jobs:
-  build:
-    machine:
-      docker_layer_caching: true
-      image: "ubuntu-2004:202010-01"
+  build-and-test:
+    executor: python/default
 
     steps:
       - checkout
+      - python/install-packages:
+          pkg-manager: pip
       - run:
           name: Run Python unit tests
-          command: |
-            pip3 install -r requirements.txt
-            python3 --version
-            python3 docs_test.py
-
-      - run:
-          name: Install architect
-          command: |
-            wget -q $(curl -sS -H "Authorization: token $RELEASE_TOKEN" https://api.github.com/repos/giantswarm/architect/releases/tags/v1.0.0 | grep browser_download_url | head -n 1 | cut -d '"' -f 4)
-            chmod +x ./architect
-            ./architect version
-
-      - run:
-          name: architect build
-          command: ./architect build
-
-      - deploy:
-          name: architect deploy (default branch only)
-          command: |
-            if [ "${CIRCLE_BRANCH}" == "master" ]; then
-              ./architect deploy
-            fi
+          command: python3 docs_test.py
 
 workflows:
-  package-and-push-chart-on-tag:
+  publish:
     jobs:
-      - build:
-          filters:  # required since `architect/push-to-app-catalog` has tag filters AND requires `build`
+      - build-and-test
+      - architect/push-to-docker:
+          name: push-to-quay
+          context: architect
+          image: quay.io/giantswarm/docs-indexer
+          username_envar: QUAY_USERNAME
+          password_envar: QUAY_PASSWORD
+          requires:
+            - build-and-test
+          # Needed to trigger job also on git tag.
+          filters:
             tags:
-              only: /.*/
+              only: /^v.*/
+
       - architect/push-to-app-catalog:
-          name: "package and push docs-indexer-app"
-          app_catalog: "giantswarm-operations-platform-catalog"
-          app_catalog_test: "giantswarm-operations-platform-test-catalog"
-          chart: "docs-indexer-app"
+          name: push-to-app-catalog
+          app_catalog: giantswarm-operations-platform-catalog
+          app_catalog_test: giantswarm-operations-platform-test-catalog
+          chart: docs-indexer-app
           # Trigger job on git tag.
           filters:
             tags:
               only: /^v.*/
           requires:
-            - build
+            - push-to-quay
