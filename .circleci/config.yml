@@ -19,6 +19,7 @@ jobs:
 workflows:
   publish:
     jobs:
+      - build_and_test
       - architect/push-to-docker:
           name: push-to-quay
           context: architect
