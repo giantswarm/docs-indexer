@@ -12,8 +12,8 @@ spec:
   # Every 20 minutes
   schedule: "5,15,25,35,45,55 5-20 * * MON-FRI"
   concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 2
-  failedJobsHistoryLimit: 2
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
   
   # Job template spec
   jobTemplate:
@@ -25,7 +25,7 @@ spec:
       backoffLimit: 10
       completions: 1
       parallelism: 1
-      ttlSecondsAfterFinished: 3600
+      ttlSecondsAfterFinished: 600
 
       template:
         metadata:
@@ -35,7 +35,7 @@ spec:
 
         # Pod spec
         spec:
-          ttlSecondsAfterFinished: 3600
+          ttlSecondsAfterFinished: 600
           containers:
             - name: {{ .Values.image.name }}
               args: ["docs"]
@@ -94,7 +94,7 @@ spec:
 
         # Pod spec
         spec:
-          ttlSecondsAfterFinished: 3600
+          ttlSecondsAfterFinished: 600
           containers:
             - name: {{ .Values.image.name }}
               args: ["blog"]
@@ -110,8 +110,8 @@ spec:
                       key: hubspot-api-key
               resources:
                 requests:
-                  cpu: 500m
-                  memory: 100M
+                  cpu: 200m
+                  memory: 50M
                 limits:
                   cpu: 1000m
                   memory: 500M
