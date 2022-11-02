@@ -49,7 +49,7 @@ rules:
   resources:
   - secrets
   resourceNames:
-  - hubspot-api-key
+  - hubspot-access-token
   verbs:
   - get
 ---
