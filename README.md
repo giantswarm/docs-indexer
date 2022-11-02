@@ -14,19 +14,19 @@ It covers:
 
 There is a helm chart in the `helm` subfolder.
 
-Note: A separate secret is required for the `HUBSPOT_API_KEY` environment variable:
+Note: A separate secret is required for the `HUBSPOT_ACCESS_TOKEN` environment variable:
 
 ```yaml
 apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
-  name: hubspot-api-key
+  name: hubspot-access-token
   namespace: docs
   labels:
     app: docs-indexer
 data:
-  hubspot-api-key: REDACTED
+  hubspot-access-token: REDACTED
 ```
 
 ## Configuration
@@ -34,9 +34,9 @@ data:
 The following environment variables are required for configuration:
 
 - `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint
-- `HUBSPOT_API_KEY`: Hubspot API key for blog indexing.
+- `HUBSPOT_ACCESS_TOKEN`: Hubspot Private App access token (must have at least scope `content`)
 
-These environment varilables may be set in order to override defaults, especially for development:
+These environment variables may be set in order to override defaults, especially for development:
 
 - `REPOSITORY_BRANCH`: Defaults to `main`
 - `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content

@@ -21,7 +21,7 @@ from elasticsearch.exceptions import NotFoundError
 from common import html2text
 from common import index_settings
 
-HUBSPOT_API_KEY = os.getenv("HUBSPOT_API_KEY")
+HUBSPOT_ACCESS_TOKEN = os.getenv("HUBSPOT_ACCESS_TOKEN")
 
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
 HUBSPOT_ENDPOINT = 'https://api.hubapi.com'
@@ -38,9 +38,8 @@ def get_blog_posts():
     Yields all published blog posts from the hubspot API
     """
     url = f'{HUBSPOT_ENDPOINT}/cms/v3/blogs/posts'
-    querystring = {'hapikey': HUBSPOT_API_KEY}
-    headers = {'accept': 'application/json'}
-    r = requests.get(url, headers=headers, params=querystring)
+    headers = {'accept': 'application/json', 'authorization': 'Bearer ' + HUBSPOT_ACCESS_TOKEN}
+    r = requests.get(url, headers=headers)
 
     r.raise_for_status()
     body = r.json()
@@ -164,8 +163,8 @@ def run():
     """
     Main function to trigger indexing the blog
     """
-    if not HUBSPOT_API_KEY:
-        logging.error(f'Environment variable HUBSPOT_API_KEY must be set')
+    if not HUBSPOT_ACCESS_TOKEN:
+        logging.error(f'Environment variable HUBSPOT_ACCESS_TOKEN must be set')
         sys.exit(1)
     
     if ELASTICSEARCH_ENDPOINT is None:
