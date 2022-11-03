@@ -1,0 +1,29 @@
+package project
+
+var (
+	description        = "Indexes content for the search engine in docs.giantswarm.io"
+	gitSHA             = "n/a"
+	name        string = "docs-indexer"
+	source      string = "https://github.com/giantswarm/docs-indexer"
+	version            = "2.8.1-dev"
+)
+
+func Description() string {
+	return description
+}
+
+func GitSHA() string {
+	return gitSHA
+}
+
+func Name() string {
+	return name
+}
+
+func Source() string {
+	return source
+}
+
+func Version() string {
+	return version
+}
