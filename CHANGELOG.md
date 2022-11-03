@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.8.1] - 2022-11-03
 
+## [2.8.1] - 2022-11-03
+
 ### Changed
 
 - Support HubSpot private app token
@@ -21,4 +23,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 [Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v2.8.1...HEAD
+[2.8.1]: https://github.com/giantswarm/docs-indexer/compare/v2.8.1...v2.8.1
 [2.8.1]: https://github.com/giantswarm/docs-indexer/compare/v2.8.1...v2.8.1
