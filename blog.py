@@ -59,9 +59,7 @@ def get_blog_posts():
         if 'paging' in body:
             if 'next' in body['paging']:
                 if 'link' in body['paging']['next']:
-                    r = requests.get(body['paging']['next']['link'],
-                                     headers=headers,
-                                     params=querystring)
+                    r = requests.get(body['paging']['next']['link'], headers=headers)
                     r.raise_for_status()
                     body = r.json()
                     has_more = True
