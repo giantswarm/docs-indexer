@@ -1,0 +1,25 @@
+{
+  "extends": [
+    "config:base",
+    ":reviewer(team:team-rainbow)"
+  ],
+  "labels": ["dependencies", "renovate"],
+  "assigneesFromCodeOwners": true,
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "automerge": true
+    }
+  ],
+  "dependencyDashboard": true,
+  "ignorePaths": [
+    ".github/workflows/zz_generated.*",
+    ".github/workflows/codeql-analysis.yml"
+  ],
+  "ignoreDeps": [
+    "architect",
+    "zricethezav/gitleaks-action",
+    "actions/setup-go"
+  ],
+  "schedule": [ "after 6am on thursday" ]
+}
