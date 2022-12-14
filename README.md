@@ -16,18 +16,23 @@ There is a helm chart in the `helm` subfolder.
 
 ## Configuration
 
-The following environment variables are required for configuration:
+The following environment variables are required for configuration, by sub command:
 
-- `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint
-- `HUBSPOT_ACCESS_TOKEN`: Hubspot Private App access token (must have at least scope `content`)
+### `hugo`
 
-These environment variables may be set in order to override defaults, especially for development:
-
-- `REPOSITORY_BRANCH`: Defaults to `main`
-- `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content
+- `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint.
+- `GITHUB_TOKEN`: If the repo is private, use this access token.
+- `INDEX_NAME`: Name of the search index to maintain.
+- `REPOSITORY_HANDLE`: Github organization and repository name in the format `org/repo`.
+- `REPOSITORY_BRANCH`: Defaults to `main`.
+- `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content.
 - `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
 - `APIDOCS_BASE_PATH`: Should be `/api/`
 - `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec
+
+### `blog`
+
+- `HUBSPOT_ACCESS_TOKEN`: Hubspot Private App access token (must have at least scope `content`)
 
 ## Usage
 
