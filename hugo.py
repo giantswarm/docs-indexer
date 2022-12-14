@@ -29,7 +29,7 @@ from common import index_settings
 
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
-REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER", "src/content")
+REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 # TODO: validate
