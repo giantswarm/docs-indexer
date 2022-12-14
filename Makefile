@@ -12,4 +12,4 @@ venv:
 	pip install -r requirements.txt
 
 test: venv
-	venv/bin/python docs_test.py
+	venv/bin/python hugo_test.py

@@ -30,19 +30,29 @@ from common import index_settings
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER", "src/content")
-APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI", "https://docs.giantswarm.io/api/")
-APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH", "/api/")
-API_SPEC_FILES = os.getenv("API_SPEC_FILES", "yaml/spec.yaml,yaml/definitions.yaml,yaml/parameters.yaml,yaml/responses.yaml")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+
+# TODO: validate
+REPOSITORY_HANDLE = os.getenv("REPOSITORY_HANDLE")
+
+# TODO: validate
+INDEX_NAME = os.getenv("INDEX_NAME")
+
+# TODO: remove
+APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI")
+APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH")
+API_SPEC_FILES = os.getenv("API_SPEC_FILES")
+
 WORKDIR = os.getenv("WORKDIR", "/home/indexer")
 
 # Path to markdown files
 SOURCE_PATH = f'{WORKDIR}/gitcache'
+DOCS_INDEX_MAPPING = json.load(open("mappings/hugo.json", "rb"))
 
-REPOSITORY_HANDLE = 'giantswarm/docs'
 REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
+if GITHUB_TOKEN is not None:
+    REPOSITORY_URL = f'https://user:{GITHUB_TOKEN}@github.com/{REPOSITORY_HANDLE}.git'
 
-DOCS_INDEX_NAME = "docs"
-DOCS_INDEX_MAPPING = json.load(open("mappings/docs.json", "rb"))
 
 # The date to use if the source does not provide a document
 # published/last modified date
@@ -360,9 +370,20 @@ def run():
     """
     Main function executing docs and api-spec indexing
     """
-    logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA')
     http = urllib3.PoolManager()
-    req = http.request("GET", f'https://api.github.com/repos/{REPOSITORY_HANDLE}/commits/{REPOSITORY_BRANCH}')
+    url = f'https://api.github.com/repos/{REPOSITORY_HANDLE}/commits/{REPOSITORY_BRANCH}'
+
+    req = None
+    if GITHUB_TOKEN is None:
+        logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA')
+        req = http.request("GET", url)
+    else:
+        logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA (authenticated)')
+        req = http.request("GET", url, headers={"Authorization": f'Bearer {GITHUB_TOKEN}'})
+    
+    if req.status >= 400:
+        logging.error(f'Error: status {req.status}')
+        sys.exit(1)
     data = json.loads(req.data.decode())
     logging.info(f'Last {REPOSITORY_HANDLE} commit SHA is {data["sha"]}')
 
@@ -370,24 +391,12 @@ def run():
         logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
         sys.exit(1)
 
-    if APIDOCS_BASE_URI is None:
-        logging.error("APIDOCS_BASE_URI isn't configured.")
-        sys.exit(1)
-
-    if APIDOCS_BASE_PATH is None:
-        logging.error("APIDOCS_BASE_PATH isn't configured.")
-        sys.exit(1)
-
-    if API_SPEC_FILES is None:
-        logging.error("API_SPEC_FILES isn't configured.")
-        sys.exit(1)
-
     # give elasticsearch some time
     time.sleep(3)
 
     es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
 
-    index_name = f'{DOCS_INDEX_NAME}-{data["sha"]}'
+    index_name = f'{INDEX_NAME}-{data["sha"]}'
 
     # Check index existence, exit if exists
     check_index(es, index_name)
@@ -405,7 +414,7 @@ def run():
     
     # Check again with cloned SHA whether index exist
     # (just in case we got a different SHA than before)
-    full_index_name = f'{DOCS_INDEX_NAME}-{cloned_sha}'
+    full_index_name = f'{INDEX_NAME}-{cloned_sha}'
     check_index(es, full_index_name)
 
     path = main_path
@@ -419,15 +428,16 @@ def run():
     ensure_index(es, full_index_name)
 
     # index API spec
-    index_openapi_spec(es, APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
+    if (APIDOCS_BASE_URI is not None) and (APIDOCS_BASE_PATH is not None) and (API_SPEC_FILES is not None):
+        index_openapi_spec(es, APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
 
     # index docs pages
     for page in pages:
         index_page(es, main_path, page["file_path"], page["path"], page["uri"], full_index_name, last_modified)
 
     # remove old index if existed, re-create alias
-    if es.indices.exists_alias(name=DOCS_INDEX_NAME):
-        old_index = es.indices.get_alias(name=DOCS_INDEX_NAME)
+    if es.indices.exists_alias(name=INDEX_NAME):
+        old_index = es.indices.get_alias(name=INDEX_NAME)
         
         # here we assume there is only one index behind this alias
         old_indices = list(old_index.keys())
@@ -435,7 +445,7 @@ def run():
         if len(old_indices) > 0:
             logging.info("Old index on alias is: %s" % old_indices[0])
             try:
-                es.indices.delete_alias(index=old_indices[0], name=DOCS_INDEX_NAME)
+                es.indices.delete_alias(index=old_indices[0], name=INDEX_NAME)
             except NotFoundError:
                 logging.error("Could not delete index alias for %s" % old_indices[0])
                 pass
@@ -444,5 +454,5 @@ def run():
             except:
                 logging.error("Could not delete index %s" % old_indices[0])
                 pass
-    es.indices.put_alias(index=full_index_name, name=DOCS_INDEX_NAME)
+    es.indices.put_alias(index=full_index_name, name=INDEX_NAME)
 
