@@ -53,7 +53,7 @@ spec:
                 - name: INDEX_NAME
                   value: docs
               volumeMounts:
-                - name: cache
+                - name: docs-cache
                   mountPath: /home/indexer/gitcache
               resources:
                 requests:
@@ -63,7 +63,7 @@ spec:
                   cpu: 1000m
                   memory: 500M
           volumes:
-            - name: cache
+            - name: docs-cache
               emptyDir: {}
           restartPolicy: OnFailure
           serviceAccount: {{ .Values.name }}
