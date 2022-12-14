@@ -32,7 +32,6 @@ spec:
 
         # Pod spec
         spec:
-          ttlSecondsAfterFinished: 600
           containers:
             - name: {{ .Values.image.name }}
               args: ["hugo"]
