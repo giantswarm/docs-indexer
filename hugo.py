@@ -67,7 +67,7 @@ def clone_repo(repo_url, branch, target_path):
     a given target folder. If the target folder exists, it will be removed
     first and then created again.
     """
-    logging.info("Cloning git repository %s, branch '%s' to %s" % (repo_url, branch, target_path))
+    logging.info("Cloning git repository to %s" % (repo_url, branch, target_path))
 
     # repo name from URL
     (reponame, _) = os.path.basename(repo_url).split(".")
