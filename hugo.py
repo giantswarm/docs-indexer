@@ -33,6 +33,9 @@ REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 # TODO: validate
+BASE_URL = os.getenv("BASE_URL")
+
+# TODO: validate
 REPOSITORY_HANDLE = os.getenv("REPOSITORY_HANDLE")
 
 # TODO: validate
@@ -146,7 +149,7 @@ def get_pages(root_path):
 
             uri = "/" + "/".join(path) + "/"
             uri = uri.replace("//", "/")
-            
+
             record = {
                 "path": path,
                 "uri": uri,
@@ -227,6 +230,7 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
         data = {}
     
     data["uri"] = uri
+    data["url"] = (BASE_URL + uri).replace("//", "/")
     data["breadcrumb"] = breadcrumb
     data["body"] = text
 
@@ -234,10 +238,9 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     data["date"] = last_modified.get(relative_path, DEFAULT_DATE.isoformat() + "+00:00")
 
     # catch-all text field
+    data["text"] = ""
     if "title" in data:
         data["text"] = data["title"]
-    else:
-        data["text"] = ""
 
     if text is not None:
         data["text"] += " " + text

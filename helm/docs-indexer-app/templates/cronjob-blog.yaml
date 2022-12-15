@@ -45,6 +45,8 @@ spec:
                     secretKeyRef:
                       name: hubspot-access-token
                       key: hubspot-access-token
+                - name: BASE_URL
+                  value: https://www.giantswarm.io/blog
               resources:
                 requests:
                   cpu: 200m
