@@ -55,6 +55,8 @@ spec:
                   value: content/docs
                 - name: INDEX_NAME
                   value: intranet
+                - name: TYPE_LABEL
+                  value: Intranet
               volumeMounts:
                 - name: intranet-cache
                   mountPath: /home/indexer/gitcache

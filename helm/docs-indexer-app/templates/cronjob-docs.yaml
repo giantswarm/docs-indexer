@@ -53,6 +53,8 @@ spec:
                   value: src/content
                 - name: INDEX_NAME
                   value: docs
+                - name: TYPE_LABEL
+                  value: Documentation
               volumeMounts:
                 - name: docs-cache
                   mountPath: /home/indexer/gitcache
