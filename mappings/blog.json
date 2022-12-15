@@ -6,6 +6,10 @@
       "term_vector": "with_positions_offsets",
       "analyzer": "english"
     },
+    "type": {
+      "type": "keyword",
+      "store": true
+    },
     "url": {
       "type": "keyword",
       "store": true

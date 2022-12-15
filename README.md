@@ -27,6 +27,7 @@ The following environment variables are required for configuration, by sub comma
 - `REPOSITORY_HANDLE`: Github organization and repository name in the format `org/repo`.
 - `REPOSITORY_BRANCH`: Defaults to `main`.
 - `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content.
+- `TYPE_LABEL`: User friendly search result type name.
 - `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
 - `APIDOCS_BASE_PATH`: Should be `/api/`
 - `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec.
@@ -46,6 +47,7 @@ This indexers create Elasticsearch indices with the mappings defined in the file
 
 Here is some additional information on the index fields:
 
+- `type`: Document type in a user-friendly spelling, used for filtering.
 - `url`: Full URL of the resource.
 - `breadcrumb`: List field for breadcrumb items. For a page with `URL = "https://example.com/foo/bar/"` this will be `["foo", "bar"]`.
 - `breadcrumb_1` to `breadcrumb_n`: Individual fields for the first, second, third, ... nth breadcrumb item.

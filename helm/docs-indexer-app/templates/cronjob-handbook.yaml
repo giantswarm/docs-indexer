@@ -53,6 +53,8 @@ spec:
                   value: content
                 - name: INDEX_NAME
                   value: handbook
+                - name: TYPE_LABEL
+                  value: Handbook
               volumeMounts:
                 - name: handbook-cache
                   mountPath: /home/indexer/gitcache
