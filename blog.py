@@ -24,6 +24,10 @@ from common import index_settings
 HUBSPOT_ACCESS_TOKEN = os.getenv("HUBSPOT_ACCESS_TOKEN")
 
 ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
+
+# TODO: validate
+BASE_URL = os.getenv("BASE_URL")
+
 HUBSPOT_ENDPOINT = 'https://api.hubapi.com'
 TIME_FORMAT_FINE = '%Y-%m-%dT%H:%M:%S.%fZ'
 TIME_FORMAT_COARSE = '%Y-%m-%dT%H:%M:%SZ'
@@ -77,6 +81,7 @@ def parse_blog_post(post):
         'id': post['id'],
         'breadcrumb': ['blog'],
         'breadcrumb_1': 'blog',
+        'url': post['url'],
         'uri': post['url'],
         'date': parse_date(post['created']),
         'title': title,
