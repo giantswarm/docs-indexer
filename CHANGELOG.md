@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2022-12-15
+
 - Improve docker image build speed by using PyYAML from Alpine.
 - Fix removal of a slash from the URL scheme.
 - Add `type` field to search documents for filtering.
@@ -34,7 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release adhering to [how-to-release-a-project](https://intranet.giantswarm.io/docs/dev-and-releng/releases/how-to-release-a-project/)
 
 
-[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/giantswarm/docs-indexer/compare/v3.0.1...v3.1.0
 [3.0.1]: https://github.com/giantswarm/docs-indexer/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/giantswarm/docs-indexer/compare/v2.8.1...v3.0.0
 [2.8.1]: https://github.com/giantswarm/docs-indexer/compare/v2.8.1...v2.8.1
