@@ -41,6 +41,9 @@ REPOSITORY_HANDLE = os.getenv("REPOSITORY_HANDLE")
 # TODO: validate
 INDEX_NAME = os.getenv("INDEX_NAME")
 
+# TODO: validate
+TYPE_LABEL = os.getenv("TYPE_LABEL")
+
 # TODO: remove
 APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI")
 APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH")
@@ -231,6 +234,7 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
         logging.warning("File in %s did not provide parseable front matter." % path)
         data = {}
     
+    data["type"] = TYPE_LABEL
     data["uri"] = uri
     data["url"] = BASE_URL + uri
     data["breadcrumb"] = breadcrumb

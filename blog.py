@@ -32,7 +32,10 @@ HUBSPOT_ENDPOINT = 'https://api.hubapi.com'
 TIME_FORMAT_FINE = '%Y-%m-%dT%H:%M:%S.%fZ'
 TIME_FORMAT_COARSE = '%Y-%m-%dT%H:%M:%SZ'
 TIME_FORMAT_INDEXNAME = '%Y-%m-%d-%H-%M-%S'
-INDEX_MAPPING = json.load(open('mappings/blog.json', 'rb'))
+TYPE_LABEL = 'Blog'
+
+with open('mappings/blog.json', 'rb') as f:
+    INDEX_MAPPING = json.load(f)
 
 # Name prefix and alias for our index. Must not contain dashes!
 INDEX_NAME_PREFIX = 'blog'
@@ -79,6 +82,7 @@ def parse_blog_post(post):
 
     ret = {
         'id': post['id'],
+        'type': TYPE_LABEL,
         'breadcrumb': ['blog'],
         'breadcrumb_1': 'blog',
         'url': post['url'],

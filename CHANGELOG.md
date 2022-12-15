@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve docker image build speed by using PyYAML from Alpine.
 - Fix removal of a slash from the URL scheme.
+- Add `type` field to search documents for filtering.
 
 ## [3.0.1] - 2022-12-15
 
