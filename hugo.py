@@ -236,7 +236,7 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     
     data["type"] = TYPE_LABEL
     data["uri"] = uri
-    data["url"] = (BASE_URL + uri).replace("//", "/")
+    data["url"] = BASE_URL + uri
     data["breadcrumb"] = breadcrumb
     data["body"] = text
 
