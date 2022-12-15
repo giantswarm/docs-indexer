@@ -145,6 +145,8 @@ def get_pages(root_path):
                 path.append(segment)
 
             uri = "/" + "/".join(path) + "/"
+            uri = uri.replace("//", "/")
+            
             record = {
                 "path": path,
                 "uri": uri,
