@@ -14,52 +14,44 @@ It covers:
 
 There is a helm chart in the `helm` subfolder.
 
-Note: A separate secret is required for the `HUBSPOT_ACCESS_TOKEN` environment variable:
-
-```yaml
-apiVersion: v1
-kind: Secret
-type: Opaque
-metadata:
-  name: hubspot-access-token
-  namespace: docs
-  labels:
-    app: docs-indexer
-data:
-  hubspot-access-token: REDACTED
-```
-
 ## Configuration
 
-The following environment variables are required for configuration:
+The following environment variables are required for configuration, by sub command:
 
-- `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint
-- `HUBSPOT_ACCESS_TOKEN`: Hubspot Private App access token (must have at least scope `content`)
+### `hugo`
 
-These environment variables may be set in order to override defaults, especially for development:
-
-- `REPOSITORY_BRANCH`: Defaults to `main`
-- `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content
+- `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint.
+- `GITHUB_TOKEN`: If the repo is private, use this access token.
+- `INDEX_NAME`: Name of the search index to maintain.
+- `BASE_URL`: URL corresponding to the published root page of the site.
+- `REPOSITORY_HANDLE`: Github organization and repository name in the format `org/repo`.
+- `REPOSITORY_BRANCH`: Defaults to `main`.
+- `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content.
 - `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
 - `APIDOCS_BASE_PATH`: Should be `/api/`
-- `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec
+- `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec.
+
+### `blog`
+
+- `HUBSPOT_ACCESS_TOKEN`: Hubspot Private App access token (must have at least scope `content`)
 
 ## Usage
 
 [This docker-compose configuration](https://github.com/giantswarm/docs/blob/main/docker-compose.yaml)
 shows how to use the container.
 
-## Elasticsearch schema
+## Search index schema
 
 This indexers create Elasticsearch indices with the mappings defined in the files `mappings/*.json`.
 
 Here is some additional information on the index fields:
 
-- `uri`: The URI of the page, starting with a slash (/), so not containing schema or hostname. Used as unique identifier, so there cannot be two entries with the same `uri` value.
-- `breadcrumb`: List field for breadcrumb items. For a page with `uri = "/foo/bar/"` this will be `["foo", "bar"]`.
+- `url`: Full URL of the resource.
+- `breadcrumb`: List field for breadcrumb items. For a page with `URL = "https://example.com/foo/bar/"` this will be `["foo", "bar"]`.
 - `breadcrumb_1` to `breadcrumb_n`: Individual fields for the first, second, third, ... nth breadcrumb item.
 - `title`: The title of the document, as intended for representation as a main headline of a search result item. If a document provides several titles, this is supposed to be what users would consider the main headline of the article, or what contains the most valuable content to search for.
 - `body`: All text from the main page, excluding the first headline (which is expected to resemble the `title` content).
 - `text`: catch-all field. Used for generic search queries where no specific field is selected for a match.
 - `date`: Publish date or last modification date for the entry.
 - `image_uri`: URL of an image for the entry (optional).
+- `uri`: (deprecated)

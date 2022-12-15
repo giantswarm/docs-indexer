@@ -6,7 +6,7 @@ index_settings = {
         "number_of_shards" : 1,
         "analysis": {
             "analyzer": {
-                # 'trigram' and 'reverse' analyzers needed for phrase suggester. See mappings/docs.json.
+                # 'trigram' and 'reverse' analyzers needed for phrase suggester. See mappings/hugo.json.
                 "trigram": {
                     "type": "custom",
                     "tokenizer": "standard",

@@ -4,7 +4,7 @@ import sys
 
 import click
 
-import docs as docsmodule
+import hugo as hugomodule
 import blog as blogmodule
 
 @click.group()
@@ -12,16 +12,16 @@ def cli():
     pass
 
 @cli.command()
-def docs():
+def hugo():
     """
-    Index documentation content
+    Index hugo site content
     """
-    docsmodule.run()
+    hugomodule.run()
 
 @cli.command()
 def blog():
     """
-    Index blog content
+    Index Hubspot blog content
     """
     blogmodule.run()
 
