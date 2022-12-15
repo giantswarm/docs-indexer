@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Improve docker image build speed by using PyYAML from Alpine.
+
 ## [3.0.1] - 2022-12-15
 
 - Fix log template
