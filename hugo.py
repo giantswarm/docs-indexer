@@ -50,7 +50,9 @@ WORKDIR = os.getenv("WORKDIR", "/home/indexer")
 
 # Path to markdown files
 SOURCE_PATH = f'{WORKDIR}/gitcache'
-DOCS_INDEX_MAPPING = json.load(open("mappings/hugo.json", "rb"))
+
+with open("mappings/hugo.json", "rb") as f:
+    DOCS_INDEX_MAPPING = json.load(f)
 
 REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
 if GITHUB_TOKEN is not None:
