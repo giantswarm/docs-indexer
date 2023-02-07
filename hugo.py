@@ -16,8 +16,6 @@ import tempfile
 import urllib3
 import yaml
 
-from pprint import pprint
-
 try:
     from yaml import CLoader as Loader
 except ImportError:
