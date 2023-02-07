@@ -153,6 +153,9 @@ def get_pages(root_path):
             uri = "/" + "/".join(path) + "/"
             uri = uri.replace("//", "/")
 
+            # HUGO converts mixed case file and folder names to lowercase
+            uri = uri.lower()
+
             record = {
                 "path": path,
                 "uri": uri,
