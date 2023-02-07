@@ -122,7 +122,7 @@ def get_last_modified(path):
 
 def get_pages(root_path):
     """
-    Reads the content folder structure and returns a list of dicts, one per page.
+    Reads the HUGO content folder structure and returns a list of dicts, one per page.
     Each page dict has these keys:
 
         path: list of logical uri path elements
@@ -206,7 +206,7 @@ def get_front_matter(source_text, path):
 
 def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     """
-    Send one page to elasticsearch. Arguments:
+    Send one HUGO page to elasticsearch. Arguments:
 
     es:         elasticsearch.Elasticsearch client instance
     root_path:  Root path of the content repository
