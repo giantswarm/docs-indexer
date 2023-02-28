@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.2.0] - 2023-02-28
 
+### Changed
+
+- Fix handling of upper/mixed case file names in HUGO pages.
+
 ## [3.1.1] - 2022-12-15
 
 ### Changed
