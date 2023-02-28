@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2023-02-28
+
 ## [3.1.1] - 2022-12-15
 
 ### Changed
@@ -42,7 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release adhering to [how-to-release-a-project](https://intranet.giantswarm.io/docs/dev-and-releng/releases/how-to-release-a-project/)
 
 
-[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.1.1...HEAD
+[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/giantswarm/docs-indexer/compare/v3.1.1...v3.2.0
 [3.1.1]: https://github.com/giantswarm/docs-indexer/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/giantswarm/docs-indexer/compare/v3.0.1...v3.1.0
 [3.0.1]: https://github.com/giantswarm/docs-indexer/compare/v3.0.0...v3.0.1
