@@ -8,7 +8,7 @@ RUN set -x \
     && addgroup -g 101 -S indexer \
     && adduser -S -D -u 101 -h /home/indexer -s /sbin/nologin -G indexer -g indexer indexer
 
-RUN apk add --no-cache --update git ca-certificates py3-yaml
+RUN apk add --no-cache --update git ca-certificates py3-yaml build-base
 
 ADD requirements.txt /
 RUN pip install --upgrade pip && \
