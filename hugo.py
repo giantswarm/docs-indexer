@@ -81,6 +81,7 @@ def clone_repo(repo_url, branch, target_path):
     os.makedirs(target_path, exist_ok=True)
 
     cmd = ["git", "clone", "-q",
+           "--depth", "1",
            "-b", branch,
            repo_url, target_path]
     returncode = call(cmd)
