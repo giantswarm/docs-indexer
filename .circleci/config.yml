@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   architect: giantswarm/architect@4.31.0
-  python: circleci/python@2.0.3
+  python: circleci/python@2.1.1
 
 jobs:
   build-and-test:
