@@ -5,7 +5,7 @@ click==8.1.7
 elasticsearch==6.8.2
 GitPython==3.1.37
 idna==3.4
-Markdown==3.4.4
+Markdown==3.5
 openapi-spec-validator==0.7.1
 prance==23.6.21.0
 requests==2.31.0
