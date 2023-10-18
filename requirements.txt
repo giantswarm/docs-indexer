@@ -9,7 +9,7 @@ Markdown==3.5
 openapi-spec-validator==0.7.1
 prance==23.6.21.0
 requests==2.31.0
-semver==3.0.1
+semver==3.0.2
 six==1.16.0
 soupsieve==2.5
 urllib3==2.0.7
