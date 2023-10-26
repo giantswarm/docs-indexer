@@ -10,6 +10,16 @@ metadata:
   name: {{ .Values.name }}
   namespace: {{ .Release.Namespace }}
 rules:
+{{- if not .Values.podSecurityStandards.enforced }}
+- apiGroups:
+  - extensions
+  resourceNames:
+  - {{ .Values.name }}
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+{{- end }}
 - apiGroups:
   - ""
   resources:
