@@ -5,3 +5,6 @@ image:
   tag: "[[.Version]]"
   sha: "[[.SHA]]"
 elasticsearchEndpoint: "http://sitesearch-app:9200/"
+
+podSecurityStandards:
+  enforced: false

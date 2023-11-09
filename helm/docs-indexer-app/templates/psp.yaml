@@ -1,0 +1,26 @@
+{{- if not .Values.podSecurityStandards.enforced }}
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: {{ .Values.name }}
+spec:
+  allowPrivilegeEscalation: false
+  runAsUser:
+    rule: MustRunAsNonRoot
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: MustRunAs
+    ranges:
+    - max: 65535
+      min: 1
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+    - max: 65535
+      min: 1
+  volumes:
+  - secret
+  - configMap
+  - emptyDir
+{{- end }}
