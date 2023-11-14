@@ -14,7 +14,9 @@ jobs:
           pkg-manager: pip
       - run:
           name: Run Python unit tests
-          command: python3 hugo_test.py
+          command:
+            python3 common_test.py
+            python3 hugo_test.py
 
 workflows:
   publish:
