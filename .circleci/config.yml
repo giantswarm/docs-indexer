@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  architect: giantswarm/architect@4.34.1
+  architect: giantswarm/architect@4.35.5
   python: circleci/python@2.1.1
 
 jobs:
@@ -25,15 +25,11 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - architect/push-to-docker:
-          name: push-to-quay
+      - architect/push-to-registries:
           context: architect
-          image: quay.io/giantswarm/docs-indexer
-          username_envar: QUAY_USERNAME
-          password_envar: QUAY_PASSWORD
+          name: push-to-registries
           requires:
             - build-and-test
-          # Needed to trigger job also on git tag.
           filters:
             tags:
               only: /^v.*/
@@ -49,4 +45,4 @@ workflows:
             tags:
               only: /^v.*/
           requires:
-            - push-to-quay
+            - push-to-registries
