@@ -35,4 +35,4 @@ def html2text(html):
     Return the plain text (UTF-8) representation of the given HTML
     """
     parser = BeautifulSoup(html, features="html.parser")
-    return ''.join(parser.findAll(text=True))
+    return ''.join(parser.find_all(string=True))
