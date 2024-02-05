@@ -1,0 +1,98 @@
+{{- if (((.Values.global).podSecurityStandards).enforced) }}
+---
+apiVersion: policy.giantswarm.io/v1alpha1
+kind: PolicyException
+metadata:
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+  labels:
+    policy.giantswarm.io/resource-kind: CronJob
+    policy.giantswarm.io/resource-name: {{ .Values.name }}-blog
+    policy.giantswarm.io/resource-namespace: {{ .Release.Namespace }}
+  name: {{ .Values.name }}-deployment
+  namespace: policy-exceptions
+spec:
+  policies:
+    - require-run-as-nonroot
+    - restrict-seccomp-strict
+    - disallow-capabilities-strict
+    - disallow-privilege-escalation
+  targets:
+    - kind: CronJob
+      names:
+        - {{ .Values.name }}-blog
+      namespaces:
+        - {{ .Release.Namespace }}
+---
+apiVersion: policy.giantswarm.io/v1alpha1
+kind: PolicyException
+metadata:
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+  labels:
+    policy.giantswarm.io/resource-kind: CronJob
+    policy.giantswarm.io/resource-name: {{ .Values.name }}-docs
+    policy.giantswarm.io/resource-namespace: {{ .Release.Namespace }}
+  name: {{ .Values.name }}-deployment
+  namespace: policy-exceptions
+spec:
+  policies:
+    - require-run-as-nonroot
+    - restrict-seccomp-strict
+    - disallow-capabilities-strict
+    - disallow-privilege-escalation
+  targets:
+    - kind: CronJob
+      names:
+        - {{ .Values.name }}-docs
+      namespaces:
+        - {{ .Release.Namespace }}
+---
+apiVersion: policy.giantswarm.io/v1alpha1
+kind: PolicyException
+metadata:
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+  labels:
+    policy.giantswarm.io/resource-kind: CronJob
+    policy.giantswarm.io/resource-name: {{ .Values.name }}-handbook
+    policy.giantswarm.io/resource-namespace: {{ .Release.Namespace }}
+  name: {{ .Values.name }}-deployment
+  namespace: policy-exceptions
+spec:
+  policies:
+    - require-run-as-nonroot
+    - restrict-seccomp-strict
+    - disallow-capabilities-strict
+    - disallow-privilege-escalation
+  targets:
+    - kind: CronJob
+      names:
+        - {{ .Values.name }}-handbook
+      namespaces:
+        - {{ .Release.Namespace }}
+---
+apiVersion: policy.giantswarm.io/v1alpha1
+kind: PolicyException
+metadata:
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+  labels:
+    policy.giantswarm.io/resource-kind: CronJob
+    policy.giantswarm.io/resource-name: {{ .Values.name }}-intranet
+    policy.giantswarm.io/resource-namespace: {{ .Release.Namespace }}
+  name: {{ .Values.name }}-deployment
+  namespace: policy-exceptions
+spec:
+  policies:
+    - require-run-as-nonroot
+    - restrict-seccomp-strict
+    - disallow-capabilities-strict
+    - disallow-privilege-escalation
+  targets:
+    - kind: CronJob
+      names:
+        - {{ .Values.name }}-intranet
+      namespaces:
+        - {{ .Release.Namespace }}
+{{- end }}
