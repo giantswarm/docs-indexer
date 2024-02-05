@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.3] - 2024-02-05
+
 ### Added
 
 - Add PSS resources (PolicyException)
@@ -68,7 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release adhering to [how-to-release-a-project](https://intranet.giantswarm.io/docs/dev-and-releng/releases/how-to-release-a-project/)
 
 
-[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.3.2...HEAD
+[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.3.3...HEAD
+[3.3.3]: https://github.com/giantswarm/docs-indexer/compare/v3.3.2...v3.3.3
 [3.3.2]: https://github.com/giantswarm/docs-indexer/compare/v3.3.1...v3.3.2
 [3.3.1]: https://github.com/giantswarm/docs-indexer/compare/v3.3.0...v3.3.1
 [3.3.0]: https://github.com/giantswarm/docs-indexer/compare/v3.2.1...v3.3.0
