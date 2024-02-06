@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.4] - 2024-02-06
+
 ### Changed
 
 - Adjust job spec for security compliance in K8s 1.25
@@ -74,7 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release adhering to [how-to-release-a-project](https://intranet.giantswarm.io/docs/dev-and-releng/releases/how-to-release-a-project/)
 
 
-[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.3.3...HEAD
+[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.3.4...HEAD
+[3.3.4]: https://github.com/giantswarm/docs-indexer/compare/v3.3.3...v3.3.4
 [3.3.3]: https://github.com/giantswarm/docs-indexer/compare/v3.3.2...v3.3.3
 [3.3.2]: https://github.com/giantswarm/docs-indexer/compare/v3.3.1...v3.3.2
 [3.3.1]: https://github.com/giantswarm/docs-indexer/compare/v3.3.0...v3.3.1
