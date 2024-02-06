@@ -1,6 +1,7 @@
 name: docs-indexer-app
 namespace: docs
 image:
+  registry: gsoci.azurecr.io
   name: docs-indexer
   tag: "[[.Version]]"
   sha: "[[.SHA]]"
