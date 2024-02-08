@@ -54,7 +54,7 @@ spec:
                 - name: HUBSPOT_ACCESS_TOKEN
                   valueFrom:
                     secretKeyRef:
-                      name: hubspot-access-token
+                      name: {{ .Values.name }}-credentials
                       key: hubspot-access-token
                 - name: BASE_URL
                   value: https://www.giantswarm.io/blog
