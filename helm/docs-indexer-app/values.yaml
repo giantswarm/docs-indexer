@@ -7,6 +7,6 @@ image:
   sha: "[[.SHA]]"
 elasticsearchEndpoint: "http://sitesearch-app:9200/"
 
-gloval:
+global:
   podSecurityStandards:
     enforced: false
