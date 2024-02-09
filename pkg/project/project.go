@@ -5,7 +5,7 @@ var (
 	gitSHA             = "n/a"
 	name        string = "docs-indexer"
 	source      string = "https://github.com/giantswarm/docs-indexer"
-	version            = "3.3.5-dev"
+	version            = "3.4.0"
 )
 
 func Description() string {
