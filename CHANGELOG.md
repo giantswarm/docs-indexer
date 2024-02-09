@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2024-02-09
+
 ### Changed
 
 - Make secret resources part of the chart
@@ -80,7 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release adhering to [how-to-release-a-project](https://intranet.giantswarm.io/docs/dev-and-releng/releases/how-to-release-a-project/)
 
 
-[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.3.4...HEAD
+[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v3.4.0...HEAD
+[3.4.0]: https://github.com/giantswarm/docs-indexer/compare/v3.3.4...v3.4.0
 [3.3.4]: https://github.com/giantswarm/docs-indexer/compare/v3.3.3...v3.3.4
 [3.3.3]: https://github.com/giantswarm/docs-indexer/compare/v3.3.2...v3.3.3
 [3.3.2]: https://github.com/giantswarm/docs-indexer/compare/v3.3.1...v3.3.2
