@@ -7,6 +7,10 @@ image:
   sha: "[[.SHA]]"
 elasticsearchEndpoint: "http://sitesearch-app:9200/"
 
-gloval:
+credentials:
+  githubAccessToken: DUMMYTOKEN
+  hubspotAccessToken: DUMMYTOKEN
+
+global:
   podSecurityStandards:
     enforced: false
