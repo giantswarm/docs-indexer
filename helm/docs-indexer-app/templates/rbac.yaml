@@ -25,7 +25,7 @@ rules:
   resources:
   - secrets
   resourceNames:
-  - hubspot-access-token
+  - {{ .Values.name }}-credentials
   verbs:
   - get
 ---
