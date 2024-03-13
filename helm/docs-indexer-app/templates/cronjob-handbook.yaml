@@ -71,11 +71,11 @@ spec:
                   mountPath: /home/indexer/gitcache
               resources:
                 requests:
-                  cpu: 200m
-                  memory: 50M
+                  cpu: {{ .Values.resources.requests.cpu }}
+                  memory: {{ .Values.resources.requests.memory }}
                 limits:
-                  cpu: 1000m
-                  memory: 500M
+                  cpu: {{ .Values.resources.limits.cpu }}
+                  memory: {{ .Values.resources.limits.memory }}
           volumes:
             - name: handbook-cache
               emptyDir: {}
