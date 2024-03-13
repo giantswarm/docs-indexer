@@ -7,6 +7,14 @@ image:
   sha: "[[.SHA]]"
 elasticsearchEndpoint: "http://sitesearch-app:9200/"
 
+resources:
+  requests:
+    cpu: 100m
+    memory: 80M
+  limits:
+    cpu: 200m
+    memory: 200M
+
 credentials:
   githubAccessToken: DUMMYTOKEN
   hubspotAccessToken: DUMMYTOKEN
