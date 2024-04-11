@@ -4,7 +4,7 @@ chardet==5.2.0
 click==8.1.7
 elasticsearch==6.8.2
 GitPython==3.1.42
-idna==3.6
+idna==3.7
 Markdown==3.6
 openapi-spec-validator==0.7.1
 prance==23.6.21.0
