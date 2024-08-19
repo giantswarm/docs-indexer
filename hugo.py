@@ -1,6 +1,6 @@
 from datetime import datetime
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import NotFoundError
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import NotFoundError
 from markdown import markdown
 from subprocess import call, check_output, STDOUT
 from prance import ResolvingParser
@@ -25,7 +25,10 @@ except ImportError:
 from common import html2text
 from common import index_settings
 
-ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/")
+OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT", "http://localhost:9200/")
+OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME", "admin")
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "")
+
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -59,6 +62,8 @@ REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
 if GITHUB_TOKEN is not None:
     REPOSITORY_URL = f'https://user:{GITHUB_TOKEN}@github.com/{REPOSITORY_HANDLE}.git'
 
+# Path to Bulk API file which we generate for testing purposes
+BULK_API_FILE = WORKDIR + "/bulk_api.json"
 
 # The date to use if the source does not provide a document
 # published/last modified date
@@ -207,16 +212,16 @@ def get_front_matter(source_text, path):
     return (None, None)
 
 
-def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
+def index_page(osclient, root_path, path, breadcrumb, uri, index, last_modified):
     """
-    Send one HUGO page to elasticsearch. Arguments:
+    Send one HUGO page to OpenSearch. Arguments:
 
-    es:         elasticsearch.Elasticsearch client instance
+    osclient:   opensearch.OpenSearch client instance
     root_path:  Root path of the content repository
     path:       File path
     breadcrumb: structured path (list of segments)
     uri:        The URI
-    index:      Elasticsearch index to write to
+    index:      OpenSearch index to write to
     """
     # get document body
     with open(path, "r") as file_handler:
@@ -259,24 +264,29 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     for i in range(1, len(breadcrumb) + 1):
         data["breadcrumb_%d" % i] = breadcrumb[i - 1]
 
-    # send to ElasticSearch
+    # send to OpenSearch
     try:
-        es.index(
+        osclient.index(
             index=index,
-            doc_type="_doc",
             id=uri,
             body=data)
+        
+        # Write to Bulk API file
+        with open(BULK_API_FILE, "a") as bulkfile:
+            bulkfile.write(json.dumps({"index": {"_index": index, "_id": uri}}) + "\n")
+            data["date"] = data["date"].isoformat() + "+00:00"
+            bulkfile.write(json.dumps(data) + "\n")
     except Exception as e:
         logging.error(f'Error when indexing page {uri}: {e}')
 
 
-def index_openapi_spec(es, uri, base_path, spec_files, index):
+def index_openapi_spec(osclient, uri, base_path, spec_files, index):
     """
     Indexes our API docs based on the Open API specification YAML
 
     Params:
 
-    es: elasticsearch.Elasticsearch client instance
+    osclient: opensearch.OpenSearch client instance
     """
     files = spec_files.split(",")
     tmpdir = tempfile.mkdtemp()
@@ -329,11 +339,15 @@ def index_openapi_spec(es, uri, base_path, spec_files, index):
                 "text": text,
                 "date": DEFAULT_DATE.isoformat() + "+00:00",
             }
-            es.index(
+
+            osclient.index(
                 index=index,
-                doc_type="_doc",
                 id=data["uri"],
                 body=data)
+            # Write to Bulk API file
+            with open(BULK_API_FILE, "a") as bulkfile:
+                bulkfile.write(json.dumps({"index": {"_index": index, "_id": data["uri"]}}) + "\n")
+                bulkfile.write(json.dumps(data) + "\n")
 
 
 def read_crd(path):
@@ -368,14 +382,17 @@ def check_index(es, index_name):
 
 
 def ensure_index(es, index_name):
+        body = {
+            "settings" : index_settings,
+            "mappings": DOCS_INDEX_MAPPING
+        }
         es.indices.create(
             index=index_name,
-            body={
-                "settings" : index_settings,
-                "mappings": DOCS_INDEX_MAPPING
-            },
-            # include_type_name=false shall be removed once we are on ES 7 or higher
-            include_type_name="false")
+            body=body)
+        
+        # Write to Bulk API file
+        with open(BULK_API_FILE, "a") as bulkfile:
+            bulkfile.write(json.dumps(body) + "\n")
 
 
 def run():
@@ -399,19 +416,20 @@ def run():
     data = json.loads(req.data.decode())
     logging.info(f'Last {REPOSITORY_HANDLE} commit SHA is {data["sha"]}')
 
-    if ELASTICSEARCH_ENDPOINT is None:
-        logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
+    if OPENSEARCH_ENDPOINT is None:
+        logging.error("OPENSEARCH_ENDPOINT isn't configured.")
         sys.exit(1)
 
-    # give elasticsearch some time
+    # give OpenSearch some time
     time.sleep(3)
 
-    es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
+    osclient = OpenSearch(hosts=[OPENSEARCH_ENDPOINT],
+                          http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD))
 
     index_name = f'{INDEX_NAME}-{data["sha"]}'
 
     # Check index existence, exit if exists
-    check_index(es, index_name)
+    check_index(osclient, index_name)
 
     # repo name from URL
     (reponame, _) = os.path.basename(REPOSITORY_URL).split(".")
@@ -427,7 +445,7 @@ def run():
     # Check again with cloned SHA whether index exist
     # (just in case we got a different SHA than before)
     full_index_name = f'{INDEX_NAME}-{cloned_sha}'
-    check_index(es, full_index_name)
+    check_index(osclient, full_index_name)
 
     path = main_path
 
@@ -437,19 +455,19 @@ def run():
     pages = get_pages(path)
 
     # create new index
-    ensure_index(es, full_index_name)
+    ensure_index(osclient, full_index_name)
 
     # index API spec
     if (APIDOCS_BASE_URI is not None) and (APIDOCS_BASE_PATH is not None) and (API_SPEC_FILES is not None):
-        index_openapi_spec(es, APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
+        index_openapi_spec(osclient, APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
 
     # index docs pages
     for page in pages:
-        index_page(es, main_path, page["file_path"], page["path"], page["uri"], full_index_name, last_modified)
+        index_page(osclient, main_path, page["file_path"], page["path"], page["uri"], full_index_name, last_modified)
 
     # remove old index if existed, re-create alias
-    if es.indices.exists_alias(name=INDEX_NAME):
-        old_index = es.indices.get_alias(name=INDEX_NAME)
+    if osclient.indices.exists_alias(name=INDEX_NAME):
+        old_index = osclient.indices.get_alias(name=INDEX_NAME)
         
         # here we assume there is only one index behind this alias
         old_indices = list(old_index.keys())
@@ -457,14 +475,14 @@ def run():
         if len(old_indices) > 0:
             logging.info("Old index on alias is: %s" % old_indices[0])
             try:
-                es.indices.delete_alias(index=old_indices[0], name=INDEX_NAME)
+                osclient.indices.delete_alias(index=old_indices[0], name=INDEX_NAME)
             except NotFoundError:
                 logging.error("Could not delete index alias for %s" % old_indices[0])
                 pass
             try:
-                es.indices.delete(index=old_indices[0])
+                osclient.indices.delete(index=old_indices[0])
             except:
                 logging.error("Could not delete index %s" % old_indices[0])
                 pass
-    es.indices.put_alias(index=full_index_name, name=INDEX_NAME)
+    osclient.indices.put_alias(index=full_index_name, name=INDEX_NAME)
 

@@ -15,15 +15,17 @@ import requests
 import sys
 from time import sleep
 
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import NotFoundError
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import NotFoundError
 
 from common import html2text
 from common import index_settings
 
 HUBSPOT_ACCESS_TOKEN = os.getenv("HUBSPOT_ACCESS_TOKEN")
 
-ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
+OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT")
+OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME", "admin")
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "")
 
 # TODO: validate
 BASE_URL = os.getenv("BASE_URL")
@@ -97,15 +99,14 @@ def parse_blog_post(post):
     return ret
 
 
-def index_blog_post(es, index_name, data):
+def index_blog_post(osclient, index_name, data):
     """
     Write content for one blog post to the index
     """
     id = data['id']
     try:
-        es.index(
+        osclient.index(
             index=index_name,
-            doc_type="_doc",
             id=data['id'],
             body=data)
     except Exception as e:
@@ -131,39 +132,37 @@ def full_index_name(dt):
     return f'{INDEX_NAME_PREFIX}-{datestring}'
 
 
-def create_index(es, index_name):
-    es.indices.create(
+def create_index(osclient, index_name):
+    osclient.indices.create(
         index=index_name,
         body={
             "settings" : index_settings,
             "mappings": INDEX_MAPPING
-        },
-        # include_type_name=false shall be removed once we are on ES 7 or higher
-        include_type_name="false")
+        })
 
 
-def set_index_alias(es, new_index_name):
+def set_index_alias(osclient, new_index_name):
     """
     Ensures that index alias INDEX_NAME_PREFIX points to new_index_name only,
     deletes the old index/indices the alias pointed to.
     """
-    if es.indices.exists_alias(name=INDEX_NAME_PREFIX):
-        alias = es.indices.get_alias(name=INDEX_NAME_PREFIX)
+    if osclient.indices.exists_alias(name=INDEX_NAME_PREFIX):
+        alias = osclient.indices.get_alias(name=INDEX_NAME_PREFIX)
         for index_name in list(alias.keys()):
             logging.info(f'Removing alias {INDEX_NAME_PREFIX} => {index_name}')
             try:
-                es.indices.delete_alias(index=index_name, name=INDEX_NAME_PREFIX)
+                osclient.indices.delete_alias(index=index_name, name=INDEX_NAME_PREFIX)
             except NotFoundError:
                 logging.error(f'Could not delete index alias {INDEX_NAME_PREFIX} => {index_name} (not found)')
                 pass
 
             try:
                 logging.info(f'Deleting index {index_name}')
-                es.indices.delete(index=index_name)
+                osclient.indices.delete(index=index_name)
             except:
                 logging.error("Could not delete index %s" % index_name)
                 pass
-    es.indices.put_alias(index=new_index_name, name=INDEX_NAME_PREFIX)
+    osclient.indices.put_alias(index=new_index_name, name=INDEX_NAME_PREFIX)
 
 
 def run():
@@ -174,14 +173,15 @@ def run():
         logging.error(f'Environment variable HUBSPOT_ACCESS_TOKEN must be set')
         sys.exit(1)
     
-    if ELASTICSEARCH_ENDPOINT is None:
-        logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
+    if OPENSEARCH_ENDPOINT is None:
+        logging.error("OPENSEARCH_ENDPOINT isn't configured.")
         sys.exit(1)
     
-    # give elasticsearch some time
+    # give OpenSearch some time
     sleep(3)
-    logging.info(f'Establish connection to Elasticsearch host {ELASTICSEARCH_ENDPOINT}')
-    es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
+    logging.info(f'Establish connection to OpenSearch host {OPENSEARCH_ENDPOINT}')
+    osclient = OpenSearch(hosts=[OPENSEARCH_ENDPOINT],
+                          http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD))
 
     # Our new target index name
     now_date = datetime.utcnow()
@@ -189,20 +189,20 @@ def run():
 
     logging.info(f'Creating new index {index_name}')
 
-    create_index(es, index_name)
+    create_index(osclient, index_name)
 
     logging.info(f'Starting to index hubspot blog')
 
     count = 0
     for post in get_blog_posts():
         doc = parse_blog_post(post)
-        index_blog_post(es, index_name, doc)
+        index_blog_post(osclient, index_name, doc)
         count += 1
     
     # Set/update index alias
     if count > 0:
         logging.info(f'Updating index alias {INDEX_NAME_PREFIX} to use {index_name}')
-        set_index_alias(es, index_name)
+        set_index_alias(osclient, index_name)
     else:
         logging.info(f'No new/updated blog posts found.')
 
