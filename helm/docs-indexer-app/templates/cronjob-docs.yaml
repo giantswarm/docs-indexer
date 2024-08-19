@@ -54,6 +54,16 @@ spec:
               env:
                 - name: OPENSEARCH_ENDPOINT
                   value: {{ .Values.opensearchEndpoint }}
+                - name: OPENSEARCH_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.name }}-credentials
+                      key: opensearch-user-name
+                - name: OPENSEARCH_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.name }}-credentials
+                      key: opensearch-password
                 - name: BASE_URL
                   value: https://docs.giantswarm.io
                 - name: REPOSITORY_HANDLE
