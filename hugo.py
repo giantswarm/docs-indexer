@@ -62,9 +62,6 @@ REPOSITORY_URL = f'https://github.com/{REPOSITORY_HANDLE}.git'
 if GITHUB_TOKEN is not None:
     REPOSITORY_URL = f'https://user:{GITHUB_TOKEN}@github.com/{REPOSITORY_HANDLE}.git'
 
-# Path to Bulk API file which we generate for testing purposes
-BULK_API_FILE = WORKDIR + "/bulk_api.json"
-
 # The date to use if the source does not provide a document
 # published/last modified date
 DEFAULT_DATE = datetime(1900, 1, 1, 0, 0, 0)
@@ -270,12 +267,6 @@ def index_page(osclient, root_path, path, breadcrumb, uri, index, last_modified)
             index=index,
             id=uri,
             body=data)
-        
-        # Write to Bulk API file
-        with open(BULK_API_FILE, "a") as bulkfile:
-            bulkfile.write(json.dumps({"index": {"_index": index, "_id": uri}}) + "\n")
-            data["date"] = data["date"].isoformat() + "+00:00"
-            bulkfile.write(json.dumps(data) + "\n")
     except Exception as e:
         logging.error(f'Error when indexing page {uri}: {e}')
 
@@ -344,10 +335,6 @@ def index_openapi_spec(osclient, uri, base_path, spec_files, index):
                 index=index,
                 id=data["uri"],
                 body=data)
-            # Write to Bulk API file
-            with open(BULK_API_FILE, "a") as bulkfile:
-                bulkfile.write(json.dumps({"index": {"_index": index, "_id": data["uri"]}}) + "\n")
-                bulkfile.write(json.dumps(data) + "\n")
 
 
 def read_crd(path):
@@ -389,10 +376,6 @@ def ensure_index(es, index_name):
         es.indices.create(
             index=index_name,
             body=body)
-        
-        # Write to Bulk API file
-        with open(BULK_API_FILE, "a") as bulkfile:
-            bulkfile.write(json.dumps(body) + "\n")
 
 
 def run():
