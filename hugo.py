@@ -27,7 +27,7 @@ from common import index_settings
 
 OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT", "http://localhost:9200/")
 OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME", "admin")
-OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "")
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
@@ -418,6 +418,12 @@ def run():
 
     if OPENSEARCH_ENDPOINT is None:
         logging.error("OPENSEARCH_ENDPOINT isn't configured.")
+        sys.exit(1)
+    if OPENSEARCH_USERNAME is None:
+        logging.error("OPENSEARCH_USERNAME isn't configured.")
+        sys.exit(1)
+    if OPENSEARCH_PASSWORD is None or OPENSEARCH_PASSWORD == "DUMMYPASS":
+        logging.error("OPENSEARCH_PASSWORD isn't configured.")
         sys.exit(1)
 
     # give OpenSearch some time

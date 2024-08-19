@@ -176,6 +176,12 @@ def run():
     if OPENSEARCH_ENDPOINT is None:
         logging.error("OPENSEARCH_ENDPOINT isn't configured.")
         sys.exit(1)
+    if OPENSEARCH_USERNAME is None:
+        logging.error("OPENSEARCH_USERNAME isn't configured.")
+        sys.exit(1)
+    if OPENSEARCH_PASSWORD is None or OPENSEARCH_PASSWORD == "DUMMYPASS":
+        logging.error("OPENSEARCH_PASSWORD isn't configured.")
+        sys.exit(1)
     
     # give OpenSearch some time
     sleep(3)
