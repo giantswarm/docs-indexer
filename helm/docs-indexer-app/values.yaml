@@ -5,7 +5,7 @@ image:
   name: docs-indexer
   tag: "[[.Version]]"
   sha: "[[.SHA]]"
-elasticsearchEndpoint: "http://sitesearch-app:9200/"
+opensearchEndpoint: "http://sitesearch-app:9200/"
 
 resources:
   requests:
@@ -18,6 +18,8 @@ resources:
 credentials:
   githubAccessToken: DUMMYTOKEN
   hubspotAccessToken: DUMMYTOKEN
+  opensearchUsername: admin
+  opensearchPassword: DUMMYPASS
 
 global:
   podSecurityStandards:
