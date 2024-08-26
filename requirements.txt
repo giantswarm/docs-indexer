@@ -11,5 +11,5 @@ prance==23.6.21.0
 requests==2.32.3
 semver==3.0.2
 six==1.16.0
-soupsieve==2.5
+soupsieve==2.6
 urllib3==2.2.2
