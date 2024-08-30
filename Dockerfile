@@ -1,4 +1,4 @@
-FROM python:3.12-alpine3.18
+FROM python:3.12-alpine3.20
 
 ENV PYTHON_UNBUFFERED 1
 ENV PYTHONWARNINGS "ignore:Unverified HTTPS request"

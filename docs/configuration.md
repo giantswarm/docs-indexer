@@ -14,9 +14,6 @@ The following environment variables are accepted, by indexer sub command:
 - `REPOSITORY_BRANCH`: Defaults to `main`.
 - `REPOSITORY_SUBFOLDER`: Only look into this path within the repository for indexable content.
 - `TYPE_LABEL`: User friendly search result type name.
-- `APIDOCS_BASE_URI`: Base URI for API documentation. Should be `https://docs.giantswarm.io/api/`.
-- `APIDOCS_BASE_PATH`: Should be `/api/`
-- `API_SPEC_FILES`: Comma separated list of YAML files to fetch for the OpenAPI spec.
 
 ## `blog`
 
