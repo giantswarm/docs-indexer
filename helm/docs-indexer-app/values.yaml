@@ -1,5 +1,6 @@
 name: docs-indexer-app
 namespace: docs
+serviceType: managed
 image:
   registry: gsoci.azurecr.io
   name: docs-indexer
