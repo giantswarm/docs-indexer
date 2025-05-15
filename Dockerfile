@@ -1,7 +1,7 @@
-FROM python:3.12-alpine3.18
+FROM python:3.13-alpine3.21
 
-ENV PYTHON_UNBUFFERED 1
-ENV PYTHONWARNINGS "ignore:Unverified HTTPS request"
+ENV PYTHON_UNBUFFERED=1
+ENV PYTHONWARNINGS="ignore:Unverified HTTPS request"
 
 # Create user and homedir
 RUN set -x \
