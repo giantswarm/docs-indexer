@@ -30,6 +30,8 @@ workflows:
     - architect/push-to-registries:
         context: architect
         name: push-to-registries
+        registries-data: |-
+          public gsoci.azurecr.io ACR_GSOCI_USERNAME ACR_GSOCI_PASSWORD true
         requires:
         - build-and-test
         filters:
@@ -40,6 +42,7 @@ workflows:
             ignore:
             - main
             - master
+
     - architect/push-to-app-catalog:
         name: push-to-app-catalog
         context: architect
