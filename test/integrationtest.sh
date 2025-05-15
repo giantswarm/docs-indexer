@@ -3,9 +3,6 @@
 # Exit on error
 set -e
 
-# Make sure we have the latest image
-docker build -t gsoci.azurecr.io/giantswarm/docs-indexer:latest .
-
 # Make sure the sitesearch container is clean and up
 docker compose down
 docker compose up -d sitesearch
