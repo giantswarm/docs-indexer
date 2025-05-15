@@ -18,4 +18,6 @@ jobs:
       - name: Execute test
         env:
           HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
-        run: make int-test
+        run: |
+          touch .env
+          make int-test
