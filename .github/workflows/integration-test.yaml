@@ -1,0 +1,16 @@
+name: Full test
+
+on:
+  # manual only
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: Build docker image
+        run: make image
+      - name: Execute test
+        env:
+          HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
+        run: make int-test
