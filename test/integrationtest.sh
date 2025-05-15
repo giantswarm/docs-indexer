@@ -32,7 +32,7 @@ do
         echo "No successful shards in $i search"
         exit 1
     else
-        echo "Fund $SHARDS successful shards in $i search"
+        echo "Found $SHARDS successful shards in $i search"
     fi
 
     if [[ $HITS -eq 0 ]]; then
