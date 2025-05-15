@@ -3,6 +3,9 @@ name: Full test
 on:
   # manual only
   workflow_dispatch: {}
+  push:
+    branches:
+      - integration-testing
 
 jobs:
   test:
