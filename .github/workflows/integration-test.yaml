@@ -18,7 +18,7 @@ jobs:
       - name: Execute test
         env:
           HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.INDEXER_GITHUB_TOKEN }}
         run: |
           touch .env
           make int-test
