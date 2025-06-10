@@ -42,11 +42,6 @@ INDEX_NAME = os.getenv("INDEX_NAME")
 # TODO: validate
 TYPE_LABEL = os.getenv("TYPE_LABEL")
 
-# TODO: remove
-APIDOCS_BASE_URI = os.getenv("APIDOCS_BASE_URI")
-APIDOCS_BASE_PATH = os.getenv("APIDOCS_BASE_PATH")
-API_SPEC_FILES = os.getenv("API_SPEC_FILES")
-
 WORKDIR = os.getenv("WORKDIR", "/home/indexer")
 
 # Path to markdown files
@@ -269,73 +264,6 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     except Exception as e:
         logging.error(f'Error when indexing page {uri}: {e}')
 
-
-def index_openapi_spec(es, uri, base_path, spec_files, index):
-    """
-    Indexes our API docs based on the Open API specification YAML
-
-    Params:
-
-    es: elasticsearch.Elasticsearch client instance
-    """
-    files = spec_files.split(",")
-    tmpdir = tempfile.mkdtemp()
-
-    http = urllib3.PoolManager()
-
-    # download spec files
-    for filename in files:
-        url = uri + filename
-        logging.info("Reading URL %s" % url)
-        req = http.request("GET", url)
-        path = tmpdir + os.path.sep + os.path.basename(filename)
-        with open(path, "w") as outfile:
-            outfile.write(req.data.decode())
-
-    # parse spec
-    parser = ResolvingParser(tmpdir + os.path.sep + os.path.basename(files[0]))
-
-    for path in parser.specification["paths"]:
-        for method in parser.specification["paths"][path]:
-
-            target_uri = base_path + "#operation/" + parser.specification["paths"][path][method]["operationId"]
-
-            logging.info("Indexing %s %s as URL %s" % (method.upper(), path, target_uri))
-
-            title = u"%s - %s %s" % (parser.specification["paths"][path][method]["summary"],
-                method.upper(), path)
-
-            # forming body from operation spec
-            body = u"The %s API operation\n\n" % parser.specification["paths"][path][method]["operationId"]
-            body += markdown_to_text(parser.specification["paths"][path][method]["description"])
-            for code in parser.specification["paths"][path][method]["responses"]:
-                body += u"\n- %s" % parser.specification["paths"][path][method]["responses"][code]["description"]
-
-            text = title + "\n\n" + body
-
-            # breadcrumb (list of path segments) from base_path
-            parts = base_path.split("/")
-            breadcrumb = []
-            for part in parts:
-                if part != "":
-                    breadcrumb.append(part)
-            breadcrumb.append("#operation/" + parser.specification["paths"][path][method]["operationId"])
-
-            data = {
-                "title": title,
-                "uri": target_uri,
-                "breadcrumb": breadcrumb,
-                "body": body,
-                "text": text,
-                "date": DEFAULT_DATE.isoformat() + "+00:00",
-            }
-            es.index(
-                index=index,
-                doc_type="_doc",
-                id=data["uri"],
-                body=data)
-
-
 def read_crd(path):
     with open(path, "rb") as crdfile:
         crd = yaml.load(crdfile, Loader=Loader)
@@ -438,10 +366,6 @@ def run():
 
     # create new index
     ensure_index(es, full_index_name)
-
-    # index API spec
-    if (APIDOCS_BASE_URI is not None) and (APIDOCS_BASE_PATH is not None) and (API_SPEC_FILES is not None):
-        index_openapi_spec(es, APIDOCS_BASE_URI, APIDOCS_BASE_PATH, API_SPEC_FILES, full_index_name)
 
     # index docs pages
     for page in pages:
