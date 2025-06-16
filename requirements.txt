@@ -1,5 +1,5 @@
 beautifulsoup4==4.13.4
-certifi==2025.4.26
+certifi==2025.6.15
 chardet==5.2.0
 click==8.2.1
 elasticsearch==6.8.2
