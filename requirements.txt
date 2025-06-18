@@ -11,5 +11,5 @@ requests==2.32.4
 semver==3.0.4
 six==1.17.0
 soupsieve==2.7
-urllib3==2.4.0
+urllib3==2.5.0
 PyYAML==6.0.2
