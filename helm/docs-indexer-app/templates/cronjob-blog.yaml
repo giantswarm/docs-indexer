@@ -32,6 +32,7 @@ spec:
           name: {{ .Values.name }}-blog
           labels:
             app: {{ .Values.name }}
+            observability.giantswarm.io/tenant: giantswarm
 
         # Pod spec
         spec:

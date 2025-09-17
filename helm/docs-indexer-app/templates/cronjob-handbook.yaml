@@ -35,6 +35,7 @@ spec:
           name: {{ .Values.name }}-docs
           labels:
             app: {{ .Values.name }}
+            observability.giantswarm.io/tenant: giantswarm
 
         # Pod spec
         spec:
