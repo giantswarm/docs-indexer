@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Remove PodSecurityPolicy template
+
 ### Added
 
 - Enable log collection in Loki via `observability.giantswarm.io/tenant: giantswarm` annotation
+
 
 ## [3.4.3] - 2025-05-15
 
