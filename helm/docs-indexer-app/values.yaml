@@ -4,7 +4,8 @@ image:
   registry: gsoci.azurecr.io
   name: docs-indexer
   tag: "[[.Version]]"
-  sha: "[[.SHA]]"
+opensearchEndpoint: "http://sitesearch-app:9200/"
+# Backward compatibility - will be removed in future versions
 elasticsearchEndpoint: "http://sitesearch-app:9200/"
 
 resources:

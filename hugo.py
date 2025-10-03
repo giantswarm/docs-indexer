@@ -1,6 +1,6 @@
 from datetime import datetime
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import NotFoundError
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import NotFoundError
 from markdown import markdown
 from subprocess import call, check_output, STDOUT
 from prance import ResolvingParser
@@ -25,7 +25,7 @@ except ImportError:
 from common import html2text
 from common import index_settings
 
-ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/")
+OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT", os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/"))
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -83,7 +83,7 @@ def clone_repo(repo_url, branch, target_path):
     # check success
     if returncode > 0:
         return False
-    
+
     # Get the commit SHA we checked out
     sha = check_output(["git", "-C", f"{target_path}/.git", "rev-parse", "HEAD"],
                        stderr=STDOUT,
@@ -105,14 +105,14 @@ def get_last_modified(path):
 
     repo = git.Repo(path)
     tree = repo.tree()
-    
+
     for blob in tree.traverse():
         if not blob.path.endswith(".md"):
             continue
         gen = list(repo.iter_commits(paths=blob.path, max_count=1))
         commit = gen[0]
         out[blob.path] = datetime.fromtimestamp(commit.committed_date)
-    
+
     return out
 
 def get_pages(root_path):
@@ -178,7 +178,7 @@ def get_front_matter(source_text, path):
     data = {
         "title": u""
     }
-    
+
     # Try YAML front matter
     matches = list(re.finditer(r"(---)\n", source_text))
     if len(matches) >= 2:
@@ -198,7 +198,7 @@ def get_front_matter(source_text, path):
             text = data['description']
 
         return (data, text.strip())
-    
+
     return (None, None)
 
 
@@ -206,12 +206,12 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     """
     Send one HUGO page to elasticsearch. Arguments:
 
-    es:         elasticsearch.Elasticsearch client instance
+    es:         opensearchpy.OpenSearch client instance
     root_path:  Root path of the content repository
     path:       File path
     breadcrumb: structured path (list of segments)
     uri:        The URI
-    index:      Elasticsearch index to write to
+    index:      OpenSearch index to write to
     """
     # get document body
     with open(path, "r") as file_handler:
@@ -229,7 +229,7 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     if data is None:
         logging.warning("File in %s did not provide parseable front matter." % path)
         data = {}
-    
+
     data["type"] = TYPE_LABEL
     data["uri"] = uri
     data["url"] = BASE_URL + uri
@@ -254,11 +254,10 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     for i in range(1, len(breadcrumb) + 1):
         data["breadcrumb_%d" % i] = breadcrumb[i - 1]
 
-    # send to ElasticSearch
+    # send to OpenSearch
     try:
         es.index(
             index=index,
-            doc_type="_doc",
             id=uri,
             body=data)
     except Exception as e:
@@ -301,9 +300,7 @@ def ensure_index(es, index_name):
             body={
                 "settings" : index_settings,
                 "mappings": DOCS_INDEX_MAPPING
-            },
-            # include_type_name=false shall be removed once we are on ES 7 or higher
-            include_type_name="false")
+            })
 
 
 def run():
@@ -320,21 +317,21 @@ def run():
     else:
         logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA (authenticated)')
         req = http.request("GET", url, headers={"Authorization": f'Bearer {GITHUB_TOKEN}'})
-    
+
     if req.status >= 400:
         logging.error(f'Error: status {req.status}')
         sys.exit(1)
     data = json.loads(req.data.decode())
     logging.info(f'Last {REPOSITORY_HANDLE} commit SHA is {data["sha"]}')
 
-    if ELASTICSEARCH_ENDPOINT is None:
-        logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
+    if OPENSEARCH_ENDPOINT is None:
+        logging.error("OPENSEARCH_ENDPOINT isn't configured.")
         sys.exit(1)
 
-    # give elasticsearch some time
+    # give opensearch some time
     time.sleep(3)
 
-    es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
+    es = OpenSearch(hosts=[OPENSEARCH_ENDPOINT])
 
     index_name = f'{INDEX_NAME}-{data["sha"]}'
 
@@ -349,9 +346,9 @@ def run():
     if cloned_sha is False:
         logging.error("ERROR: Could not clone docs repository.")
         sys.exit(1)
-    
+
     last_modified = get_last_modified(main_path)
-    
+
     # Check again with cloned SHA whether index exist
     # (just in case we got a different SHA than before)
     full_index_name = f'{INDEX_NAME}-{cloned_sha}'
@@ -374,7 +371,7 @@ def run():
     # remove old index if existed, re-create alias
     if es.indices.exists_alias(name=INDEX_NAME):
         old_index = es.indices.get_alias(name=INDEX_NAME)
-        
+
         # here we assume there is only one index behind this alias
         old_indices = list(old_index.keys())
 
