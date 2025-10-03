@@ -1,6 +1,6 @@
 # Search index schema
 
-This indexers create Elasticsearch indices with the mappings defined in the files `/mappings/*.json`.
+This indexers create OpenSearch indices with the mappings defined in the files `/mappings/*.json`.
 
 Here is some additional information on the index fields:
 
