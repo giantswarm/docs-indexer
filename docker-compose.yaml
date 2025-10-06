@@ -7,7 +7,6 @@ services:
       - sitesearch
     environment:
       OPENSEARCH_ENDPOINT: http://sitesearch:9200/
-      ELASTICSEARCH_ENDPOINT: http://sitesearch:9200/
       BASE_URL: https://docs.giantswarm.io
       REPOSITORY_HANDLE: giantswarm/docs
       REPOSITORY_BRANCH: main
@@ -25,7 +24,6 @@ services:
       - ./.env
     environment:
       OPENSEARCH_ENDPOINT: http://sitesearch:9200/
-      ELASTICSEARCH_ENDPOINT: http://sitesearch:9200/
       BASE_URL: https://intranet.giantswarm.io/docs
       REPOSITORY_HANDLE: giantswarm/giantswarm
       REPOSITORY_BRANCH: main
@@ -43,7 +41,6 @@ services:
       - ./.env
     environment:
       OPENSEARCH_ENDPOINT: http://sitesearch:9200/
-      ELASTICSEARCH_ENDPOINT: http://sitesearch:9200/
       BASE_URL: https://www.giantswarm.io/blog
 
 

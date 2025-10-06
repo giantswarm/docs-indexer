@@ -51,9 +51,7 @@ spec:
                   type: RuntimeDefault
               env:
                 - name: OPENSEARCH_ENDPOINT
-                  value: {{ .Values.opensearchEndpoint | default .Values.elasticsearchEndpoint }}
-                - name: ELASTICSEARCH_ENDPOINT
-                  value: {{ .Values.opensearchEndpoint | default .Values.elasticsearchEndpoint }}
+                  value: {{ .Values.opensearchEndpoint }}
                 - name: BASE_URL
                   value: https://intranet.giantswarm.io/docs
                 - name: GITHUB_TOKEN

@@ -22,12 +22,8 @@ from common import html2text
 from common import index_settings
 
 HUBSPOT_ACCESS_TOKEN = os.getenv("HUBSPOT_ACCESS_TOKEN")
-
-OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT", os.getenv("ELASTICSEARCH_ENDPOINT"))
-
-# TODO: validate
+OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT")
 BASE_URL = os.getenv("BASE_URL")
-
 HUBSPOT_ENDPOINT = 'https://api.hubapi.com'
 TIME_FORMAT_FINE = '%Y-%m-%dT%H:%M:%S.%fZ'
 TIME_FORMAT_COARSE = '%Y-%m-%dT%H:%M:%SZ'

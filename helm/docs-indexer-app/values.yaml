@@ -5,8 +5,6 @@ image:
   name: docs-indexer
   tag: "[[.Version]]"
 opensearchEndpoint: "http://sitesearch-app:9200/"
-# Backward compatibility - will be removed in future versions
-elasticsearchEndpoint: "http://sitesearch-app:9200/"
 
 resources:
   requests:

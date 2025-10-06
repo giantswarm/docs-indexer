@@ -25,23 +25,14 @@ except ImportError:
 from common import html2text
 from common import index_settings
 
-OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT", os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/"))
+OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-
-# TODO: validate
 BASE_URL = os.getenv("BASE_URL")
-
-# TODO: validate
 REPOSITORY_HANDLE = os.getenv("REPOSITORY_HANDLE")
-
-# TODO: validate
 INDEX_NAME = os.getenv("INDEX_NAME")
-
-# TODO: validate
 TYPE_LABEL = os.getenv("TYPE_LABEL")
-
 WORKDIR = os.getenv("WORKDIR", "/home/indexer")
 
 # Path to markdown files
@@ -204,7 +195,7 @@ def get_front_matter(source_text, path):
 
 def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     """
-    Send one HUGO page to elasticsearch. Arguments:
+    Send one HUGO page to opensearch. Arguments:
 
     es:         opensearchpy.OpenSearch client instance
     root_path:  Root path of the content repository
