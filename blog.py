@@ -15,19 +15,15 @@ import requests
 import sys
 from time import sleep
 
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import NotFoundError
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import NotFoundError
 
 from common import html2text
 from common import index_settings
 
 HUBSPOT_ACCESS_TOKEN = os.getenv("HUBSPOT_ACCESS_TOKEN")
-
-ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
-
-# TODO: validate
+OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT")
 BASE_URL = os.getenv("BASE_URL")
-
 HUBSPOT_ENDPOINT = 'https://api.hubapi.com'
 TIME_FORMAT_FINE = '%Y-%m-%dT%H:%M:%S.%fZ'
 TIME_FORMAT_COARSE = '%Y-%m-%dT%H:%M:%SZ'
@@ -105,7 +101,6 @@ def index_blog_post(es, index_name, data):
     try:
         es.index(
             index=index_name,
-            doc_type="_doc",
             id=data['id'],
             body=data)
     except Exception as e:
@@ -137,9 +132,7 @@ def create_index(es, index_name):
         body={
             "settings" : index_settings,
             "mappings": INDEX_MAPPING
-        },
-        # include_type_name=false shall be removed once we are on ES 7 or higher
-        include_type_name="false")
+        })
 
 
 def set_index_alias(es, new_index_name):
@@ -173,15 +166,15 @@ def run():
     if not HUBSPOT_ACCESS_TOKEN:
         logging.error(f'Environment variable HUBSPOT_ACCESS_TOKEN must be set')
         sys.exit(1)
-    
-    if ELASTICSEARCH_ENDPOINT is None:
-        logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
+
+    if OPENSEARCH_ENDPOINT is None:
+        logging.error("OPENSEARCH_ENDPOINT isn't configured.")
         sys.exit(1)
-    
-    # give elasticsearch some time
+
+    # give opensearch some time
     sleep(3)
-    logging.info(f'Establish connection to Elasticsearch host {ELASTICSEARCH_ENDPOINT}')
-    es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
+    logging.info(f'Establish connection to OpenSearch host {OPENSEARCH_ENDPOINT}')
+    es = OpenSearch(hosts=[OPENSEARCH_ENDPOINT])
 
     # Our new target index name
     now_date = datetime.utcnow()
@@ -198,7 +191,7 @@ def run():
         doc = parse_blog_post(post)
         index_blog_post(es, index_name, doc)
         count += 1
-    
+
     # Set/update index alias
     if count > 0:
         logging.info(f'Updating index alias {INDEX_NAME_PREFIX} to use {index_name}')
