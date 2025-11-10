@@ -364,7 +364,7 @@ def check_index(es, index_name):
     Check if the index already exists
     """
     # Test whether this index already exists
-    if es.indices.exists(index_name):
+    if es.indices.exists(index=index_name):
         logging.info(f'Index {index_name} already exists.')
         sys.exit()
 
