@@ -67,6 +67,11 @@ spec:
                   value: handbook
                 - name: TYPE_LABEL
                   value: Handbook
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.name }}-credentials
+                      key: github-access-token
               volumeMounts:
                 - name: handbook-cache
                   mountPath: /home/indexer/gitcache

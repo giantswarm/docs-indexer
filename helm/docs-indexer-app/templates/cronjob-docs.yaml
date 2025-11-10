@@ -67,6 +67,11 @@ spec:
                   value: docs
                 - name: TYPE_LABEL
                   value: Documentation
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.name }}-credentials
+                      key: github-access-token
               volumeMounts:
                 - name: docs-cache
                   mountPath: /home/indexer/gitcache
