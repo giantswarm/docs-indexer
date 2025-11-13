@@ -6,7 +6,7 @@ services:
     depends_on:
       - sitesearch
     environment:
-      ELASTICSEARCH_ENDPOINT: http://sitesearch:9200/
+      OPENSEARCH_ENDPOINT: http://sitesearch:9200/
       BASE_URL: https://docs.giantswarm.io
       REPOSITORY_HANDLE: giantswarm/docs
       REPOSITORY_BRANCH: main
@@ -23,7 +23,7 @@ services:
     env_file:
       - ./.env
     environment:
-      ELASTICSEARCH_ENDPOINT: http://sitesearch:9200/
+      OPENSEARCH_ENDPOINT: http://sitesearch:9200/
       BASE_URL: https://intranet.giantswarm.io/docs
       REPOSITORY_HANDLE: giantswarm/giantswarm
       REPOSITORY_BRANCH: main
@@ -40,14 +40,14 @@ services:
     env_file:
       - ./.env
     environment:
-      ELASTICSEARCH_ENDPOINT: http://sitesearch:9200/
+      OPENSEARCH_ENDPOINT: http://sitesearch:9200/
       BASE_URL: https://www.giantswarm.io/blog
 
 
   sitesearch:
     restart: no
     platform: linux/amd64
-    image: gsoci.azurecr.io/giantswarm/elasticsearch:6.8.13
+    image: gsoci.azurecr.io/giantswarm/opensearch:2.17.1
     ports:
       - "9200:9200"
     environment:
@@ -55,7 +55,7 @@ services:
       node.name: sitesearch1
       discovery.type: single-node
       bootstrap.memory_lock: "false"
-      ES_JAVA_OPTS: -Xms256m -Xmx256m
-      ES_HOME: /usr/share/elasticsearch
+      OPENSEARCH_JAVA_OPTS: -Xms256m -Xmx256m
+      DISABLE_SECURITY_PLUGIN: "true"
       MAX_LOCKED_MEMORY: unlimited
       LimitMEMLOCK: infinity

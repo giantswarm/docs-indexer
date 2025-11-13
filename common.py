@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 
-# Common settings for all elasticsearch indexes
+# Common settings for all opensearch indexes
 index_settings = {
     "index": {
         "number_of_shards" : 1,

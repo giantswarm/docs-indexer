@@ -1,6 +1,6 @@
 from datetime import datetime
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import NotFoundError
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import NotFoundError
 from markdown import markdown
 from subprocess import call, check_output, STDOUT
 from prance import ResolvingParser
@@ -15,6 +15,7 @@ import time
 import tempfile
 import urllib3
 import yaml
+from random import uniform
 
 try:
     from yaml import CLoader as Loader
@@ -25,23 +26,14 @@ except ImportError:
 from common import html2text
 from common import index_settings
 
-ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT", "http://localhost:9200/")
+OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
 REPOSITORY_SUBFOLDER = os.getenv("REPOSITORY_SUBFOLDER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-
-# TODO: validate
 BASE_URL = os.getenv("BASE_URL")
-
-# TODO: validate
 REPOSITORY_HANDLE = os.getenv("REPOSITORY_HANDLE")
-
-# TODO: validate
 INDEX_NAME = os.getenv("INDEX_NAME")
-
-# TODO: validate
 TYPE_LABEL = os.getenv("TYPE_LABEL")
-
 WORKDIR = os.getenv("WORKDIR", "/home/indexer")
 
 # Path to markdown files
@@ -58,6 +50,89 @@ if GITHUB_TOKEN is not None:
 # The date to use if the source does not provide a document
 # published/last modified date
 DEFAULT_DATE = datetime(1900, 1, 1, 0, 0, 0)
+
+def make_github_api_request(url, token=None, max_retries=3, base_delay=1.0):
+    """
+    Make a GitHub API request with retry logic and proper error handling.
+
+    Args:
+        url: The API endpoint URL
+        token: GitHub token for authentication (optional)
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay for exponential backoff in seconds
+
+    Returns:
+        tuple: (success: bool, response_data: dict or None, status_code: int)
+    """
+    http = urllib3.PoolManager()
+    headers = {}
+
+    if token is not None:
+        headers["Authorization"] = f'Bearer {token}'
+        logging.info(f'Making authenticated GitHub API request to {url}')
+    else:
+        logging.info(f'Making unauthenticated GitHub API request to {url}')
+
+    for attempt in range(max_retries + 1):
+        try:
+            req = http.request("GET", url, headers=headers)
+
+            if req.status == 200:
+                data = json.loads(req.data.decode())
+                return True, data, req.status
+            elif req.status == 403:
+                # Check if it's a rate limit issue
+                reset_time = req.headers.get('X-RateLimit-Reset')
+                remaining = req.headers.get('X-RateLimit-Remaining', '0')
+
+                if remaining == '0' and reset_time:
+                    reset_timestamp = int(reset_time)
+                    current_time = int(time.time())
+                    wait_time = reset_timestamp - current_time + 1
+
+                    if wait_time > 0 and wait_time < 3600:  # Don't wait more than 1 hour
+                        logging.warning(f'GitHub API rate limit exceeded. Waiting {wait_time} seconds until reset.')
+                        time.sleep(wait_time)
+                        continue
+
+                logging.error(f'GitHub API returned 403 Forbidden. This might indicate:')
+                logging.error(f'- Invalid or expired GitHub token')
+                logging.error(f'- Insufficient permissions for the repository')
+                logging.error(f'- Rate limit exceeded (remaining: {remaining})')
+
+                if attempt < max_retries:
+                    delay = base_delay * (2 ** attempt) + uniform(0, 1)
+                    logging.info(f'Retrying in {delay:.2f} seconds... (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(delay)
+                    continue
+
+                return False, None, req.status
+            elif req.status >= 500:
+                # Server errors - retry with exponential backoff
+                if attempt < max_retries:
+                    delay = base_delay * (2 ** attempt) + uniform(0, 1)
+                    logging.warning(f'GitHub API server error (status {req.status}). Retrying in {delay:.2f} seconds... (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(delay)
+                    continue
+
+                logging.error(f'GitHub API server error (status {req.status}) after {max_retries} retries')
+                return False, None, req.status
+            else:
+                # Other client errors (4xx) - don't retry
+                logging.error(f'GitHub API client error (status {req.status})')
+                return False, None, req.status
+
+        except Exception as e:
+            if attempt < max_retries:
+                delay = base_delay * (2 ** attempt) + uniform(0, 1)
+                logging.warning(f'GitHub API request failed with exception: {e}. Retrying in {delay:.2f} seconds... (attempt {attempt + 1}/{max_retries})')
+                time.sleep(delay)
+                continue
+            else:
+                logging.error(f'GitHub API request failed after {max_retries} retries: {e}')
+                return False, None, 0
+
+    return False, None, 0
 
 def clone_repo(repo_url, branch, target_path):
     """
@@ -83,7 +158,7 @@ def clone_repo(repo_url, branch, target_path):
     # check success
     if returncode > 0:
         return False
-    
+
     # Get the commit SHA we checked out
     sha = check_output(["git", "-C", f"{target_path}/.git", "rev-parse", "HEAD"],
                        stderr=STDOUT,
@@ -105,14 +180,14 @@ def get_last_modified(path):
 
     repo = git.Repo(path)
     tree = repo.tree()
-    
+
     for blob in tree.traverse():
         if not blob.path.endswith(".md"):
             continue
         gen = list(repo.iter_commits(paths=blob.path, max_count=1))
         commit = gen[0]
         out[blob.path] = datetime.fromtimestamp(commit.committed_date)
-    
+
     return out
 
 def get_pages(root_path):
@@ -178,7 +253,7 @@ def get_front_matter(source_text, path):
     data = {
         "title": u""
     }
-    
+
     # Try YAML front matter
     matches = list(re.finditer(r"(---)\n", source_text))
     if len(matches) >= 2:
@@ -198,20 +273,20 @@ def get_front_matter(source_text, path):
             text = data['description']
 
         return (data, text.strip())
-    
+
     return (None, None)
 
 
 def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     """
-    Send one HUGO page to elasticsearch. Arguments:
+    Send one HUGO page to opensearch. Arguments:
 
-    es:         elasticsearch.Elasticsearch client instance
+    es:         opensearchpy.OpenSearch client instance
     root_path:  Root path of the content repository
     path:       File path
     breadcrumb: structured path (list of segments)
     uri:        The URI
-    index:      Elasticsearch index to write to
+    index:      OpenSearch index to write to
     """
     # get document body
     with open(path, "r") as file_handler:
@@ -229,7 +304,7 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     if data is None:
         logging.warning("File in %s did not provide parseable front matter." % path)
         data = {}
-    
+
     data["type"] = TYPE_LABEL
     data["uri"] = uri
     data["url"] = BASE_URL + uri
@@ -254,11 +329,10 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     for i in range(1, len(breadcrumb) + 1):
         data["breadcrumb_%d" % i] = breadcrumb[i - 1]
 
-    # send to ElasticSearch
+    # send to OpenSearch
     try:
         es.index(
             index=index,
-            doc_type="_doc",
             id=uri,
             body=data)
     except Exception as e:
@@ -290,7 +364,7 @@ def check_index(es, index_name):
     Check if the index already exists
     """
     # Test whether this index already exists
-    if es.indices.exists(index_name):
+    if es.indices.exists(index=index_name):
         logging.info(f'Index {index_name} already exists.')
         sys.exit()
 
@@ -301,40 +375,35 @@ def ensure_index(es, index_name):
             body={
                 "settings" : index_settings,
                 "mappings": DOCS_INDEX_MAPPING
-            },
-            # include_type_name=false shall be removed once we are on ES 7 or higher
-            include_type_name="false")
+            })
 
 
 def run():
     """
     Main function executing docs and api-spec indexing
     """
-    http = urllib3.PoolManager()
     url = f'https://api.github.com/repos/{REPOSITORY_HANDLE}/commits/{REPOSITORY_BRANCH}'
 
-    req = None
-    if GITHUB_TOKEN is None:
-        logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA')
-        req = http.request("GET", url)
-    else:
-        logging.info(f'Getting last {REPOSITORY_HANDLE} commit SHA (authenticated)')
-        req = http.request("GET", url, headers={"Authorization": f'Bearer {GITHUB_TOKEN}'})
-    
-    if req.status >= 400:
-        logging.error(f'Error: status {req.status}')
+    # Make GitHub API request with retry logic
+    success, data, status_code = make_github_api_request(url, GITHUB_TOKEN)
+
+    if not success:
+        logging.error(f'Failed to get last commit SHA from GitHub API after retries. Status: {status_code}')
+        logging.error(f'Repository: {REPOSITORY_HANDLE}, Branch: {REPOSITORY_BRANCH}')
+        if GITHUB_TOKEN is None:
+            logging.error('Consider setting GITHUB_TOKEN environment variable for authenticated requests')
         sys.exit(1)
-    data = json.loads(req.data.decode())
+
     logging.info(f'Last {REPOSITORY_HANDLE} commit SHA is {data["sha"]}')
 
-    if ELASTICSEARCH_ENDPOINT is None:
-        logging.error("ELASTICSEARCH_ENDPOINT isn't configured.")
+    if OPENSEARCH_ENDPOINT is None:
+        logging.error("OPENSEARCH_ENDPOINT isn't configured.")
         sys.exit(1)
 
-    # give elasticsearch some time
+    # give opensearch some time
     time.sleep(3)
 
-    es = Elasticsearch(hosts=[ELASTICSEARCH_ENDPOINT])
+    es = OpenSearch(hosts=[OPENSEARCH_ENDPOINT])
 
     index_name = f'{INDEX_NAME}-{data["sha"]}'
 
@@ -348,10 +417,15 @@ def run():
     cloned_sha = clone_repo(REPOSITORY_URL, REPOSITORY_BRANCH, main_path)
     if cloned_sha is False:
         logging.error("ERROR: Could not clone docs repository.")
+        logging.error(f"Repository URL: {REPOSITORY_URL}")
+        logging.error(f"Branch: {REPOSITORY_BRANCH}")
+        logging.error(f"Target path: {main_path}")
+        if GITHUB_TOKEN is None:
+            logging.error("Note: No GitHub token configured. Private repositories require authentication.")
         sys.exit(1)
-    
+
     last_modified = get_last_modified(main_path)
-    
+
     # Check again with cloned SHA whether index exist
     # (just in case we got a different SHA than before)
     full_index_name = f'{INDEX_NAME}-{cloned_sha}'
@@ -374,7 +448,7 @@ def run():
     # remove old index if existed, re-create alias
     if es.indices.exists_alias(name=INDEX_NAME):
         old_index = es.indices.get_alias(name=INDEX_NAME)
-        
+
         # here we assume there is only one index behind this alias
         old_indices = list(old_index.keys())
 

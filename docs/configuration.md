@@ -6,7 +6,7 @@ The following environment variables are accepted, by indexer sub command:
 
 ## `hugo`
 
-- `ELASTICSEARCH_ENDPOINT`: URI for the Elasticsearch API endpoint.
+- `OPENSEARCH_ENDPOINT`: URI for the OpenSearch API endpoint.
 - `GITHUB_TOKEN`: If the repo is private, use this access token.
 - `INDEX_NAME`: Name of the search index to maintain.
 - `BASE_URL`: URL corresponding to the published root page of the site.
