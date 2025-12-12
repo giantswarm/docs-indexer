@@ -1,24 +1,24 @@
 version: 2.1
 
 orbs:
-  architect: giantswarm/architect@6.10.0
+  architect: giantswarm/architect@6.11.0
   python: circleci/python@3.3.0
 
 jobs:
   build-and-test:
     executor:
       name: python/default
-      tag: "3.13"
+      tag: "3.14"
 
     steps:
     - checkout
     - python/install-packages:
-        pkg-manager: pip
+        pkg-manager: uv
     - run:
         name: Run Python unit tests
         command: |
-          python3 common_test.py
-          python3 hugo_test.py
+          uv run python common_test.py
+          uv run python hugo_test.py
 
 workflows:
   publish:

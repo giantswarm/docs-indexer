@@ -7,4 +7,10 @@ Apart from some shared code, the code is mainly structured by content source, an
 - `hugo`: HUGO sites (for docs, intranet, handbook)
 - `blog`: Hubspot blog articles
 
+## Development
+
+This project uses [uv](https://docs.astral.sh/uv/) for Python dependency management. See the [development documentation](docs/development.md) for setup instructions.
+
+## Documentation
+
 See the [docs](docs/) folder for additional documentation.
