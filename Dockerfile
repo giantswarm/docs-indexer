@@ -19,7 +19,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock .python-version /app/
 
 # Install dependencies using uv
-RUN uv sync --frozen --no-dev
+RUN uv sync --locked
 
 # Copy application code
 COPY *.py /app/
