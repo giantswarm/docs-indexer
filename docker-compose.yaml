@@ -47,7 +47,7 @@ services:
   sitesearch:
     restart: no
     platform: linux/amd64
-    image: gsoci.azurecr.io/giantswarm/opensearch:3.3.2
+    image: gsoci.azurecr.io/giantswarm/opensearch:3.4.0
     ports:
       - "9200:9200"
     environment:
