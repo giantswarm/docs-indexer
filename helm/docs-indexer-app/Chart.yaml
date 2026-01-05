@@ -1,8 +1,10 @@
-apiVersion: v1
+apiVersion: v2
 name: docs-indexer-app
-appVersion: "[[ .AppVersion ]]"
+version: 4.1.0-dev
+appVersion: 4.1.0-dev
 description: Indexes content for the docs search engine.
+home: https://github.com/giantswarm/docs-indexer
+icon: https://s.giantswarm.io/app-icons/1/png/default-app-light.png
 annotations:
   application.giantswarm.io/team: honeybadger
-version: "[[.Version]]"
-home: https://github.com/giantswarm/docs-indexer
+  io.giantswarm.application.team: honeybadger

@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "docs-indexer-app values.schema.json",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The name of the application."
+    },
+    "namespace": {
+      "type": "string",
+      "description": "The namespace for the application."
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "registry": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        }
+      }
+    },
+    "opensearchEndpoint": {
+      "type": "string",
+      "description": "The OpenSearch endpoint URL."
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "properties": {
+        "githubAccessToken": {
+          "type": "string"
+        },
+        "hubspotAccessToken": {
+          "type": "string"
+        }
+      }
+    },
+    "global": {
+      "type": "object",
+      "properties": {
+        "podSecurityStandards": {
+          "type": "object",
+          "properties": {
+            "enforced": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

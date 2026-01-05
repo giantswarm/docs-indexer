@@ -1,0 +1,7 @@
+checks:
+  exclude:
+    # Python application needs writable filesystem for temp files and cache
+    - "no-read-only-root-fs"
+    # ttlSecondsAfterFinished is intentionally set for job cleanup
+    - "job-ttl-seconds-after-finished"
+
