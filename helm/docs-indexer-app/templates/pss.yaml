@@ -1,4 +1,3 @@
-{{- if (((.Values.global).podSecurityStandards).enforced) }}
 ---
 apiVersion: policy.giantswarm.io/v1alpha1
 kind: PolicyException
@@ -95,4 +94,3 @@ spec:
         - {{ .Values.name }}-intranet
       namespaces:
         - {{ .Release.Namespace }}
-{{- end }}
