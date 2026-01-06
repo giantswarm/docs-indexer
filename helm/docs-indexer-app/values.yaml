@@ -17,7 +17,3 @@ resources:
 credentials:
   githubAccessToken: DUMMYTOKEN
   hubspotAccessToken: DUMMYTOKEN
-
-global:
-  podSecurityStandards:
-    enforced: false
