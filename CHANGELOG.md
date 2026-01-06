@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-01-06
+
 ### Changed
 
 - ABS migration
@@ -122,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release adhering to [how-to-release-a-project](https://intranet.giantswarm.io/docs/dev-and-releng/releases/how-to-release-a-project/)
 
 
-[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/giantswarm/docs-indexer/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/giantswarm/docs-indexer/compare/v3.5.0...v4.0.0
 [3.5.0]: https://github.com/giantswarm/docs-indexer/compare/v3.4.3...v3.5.0
 [3.4.3]: https://github.com/giantswarm/docs-indexer/compare/v3.4.2...v3.4.3
