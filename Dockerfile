@@ -11,19 +11,24 @@ RUN set -x \
 RUN apk add --no-cache --update git ca-certificates py3-yaml build-base curl
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.18 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+ENV UV_NO_DEV=1
+ENV UV_PYTHON_DOWNLOADS=0
+
 # Copy dependency files
-COPY pyproject.toml uv.lock .python-version /app/
-
-# Install dependencies using uv
-RUN uv sync --frozen --no-dev
-
+COPY pyproject.toml uv.lock /app/
 # Copy application code
 COPY *.py /app/
 COPY mappings /app/mappings
+
+# Install dependencies using uv
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked
+
 
 USER 101
 
