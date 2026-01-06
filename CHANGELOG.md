@@ -10,11 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - ABS migration
-- Migrate Chart.yaml annotations to new format as per https://docs.giantswarm.io/reference/platform-api/chart-metadata/
+- Migrate Chart.yaml annotations to the new format as per https://docs.giantswarm.io/reference/platform-api/chart-metadata/
 
 ### Removed
 
 - Removed PSP-related support value `.global.podSecurityStandards.enforced`. Kyverno `PolicyException`s are now created by default.
+
+### Fixed
+
+- Fix GS polex names to be unique.
 
 ## [4.0.0] - 2025-11-21
 
