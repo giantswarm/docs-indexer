@@ -3,6 +3,7 @@ name: docs-indexer-app
 appVersion: '4.1.0'
 description: Indexes content for the docs search engine.
 annotations:
+  io.giantswarm.application.audience: giantswarm
   io.giantswarm.application.team: honeybadger
 version: '4.1.0'
 home: https://github.com/giantswarm/docs-indexer
