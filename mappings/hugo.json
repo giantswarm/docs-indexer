@@ -19,7 +19,27 @@
       "store": true
     },
     "breadcrumb": {
-      "type": "text",
+      "type": "keyword",
+      "store": true
+    },
+    "breadcrumb_1": {
+      "type": "keyword",
+      "store": true
+    },
+    "breadcrumb_2": {
+      "type": "keyword",
+      "store": true
+    },
+    "breadcrumb_3": {
+      "type": "keyword",
+      "store": true
+    },
+    "breadcrumb_4": {
+      "type": "keyword",
+      "store": true
+    },
+    "breadcrumb_5": {
+      "type": "keyword",
       "store": true
     },
     "body": {
