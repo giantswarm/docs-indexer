@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.1.1] - 2026-01-14
 
+### Added
+
+- Added definition of `breadcrumb_1` ... `breadcrumb_5` to mappings.
+
+### Changed
+
+- Change type of `breadcrumb` field to `keyword` for exact matching.
+
 ## [4.1.0] - 2026-01-06
 
 ### Changed
