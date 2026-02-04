@@ -11,7 +11,7 @@ RUN set -x \
 RUN apk add --no-cache --update git ca-certificates py3-yaml build-base curl
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:0.9.29 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.9.30 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
