@@ -5,6 +5,7 @@ metadata:
   annotations:
     helm.sh/hook: pre-install,pre-upgrade
   labels:
+    {{- include "labels.common" . | nindent 4 }}
     policy.giantswarm.io/resource-kind: CronJob
     policy.giantswarm.io/resource-name: {{ .Values.name }}-blog
     policy.giantswarm.io/resource-namespace: {{ .Release.Namespace }}
@@ -29,6 +30,7 @@ metadata:
   annotations:
     helm.sh/hook: pre-install,pre-upgrade
   labels:
+    {{- include "labels.common" . | nindent 4 }}
     policy.giantswarm.io/resource-kind: CronJob
     policy.giantswarm.io/resource-name: {{ .Values.name }}-docs
     policy.giantswarm.io/resource-namespace: {{ .Release.Namespace }}
@@ -53,6 +55,7 @@ metadata:
   annotations:
     helm.sh/hook: pre-install,pre-upgrade
   labels:
+    {{- include "labels.common" . | nindent 4 }}
     policy.giantswarm.io/resource-kind: CronJob
     policy.giantswarm.io/resource-name: {{ .Values.name }}-handbook
     policy.giantswarm.io/resource-namespace: {{ .Release.Namespace }}
@@ -77,6 +80,7 @@ metadata:
   annotations:
     helm.sh/hook: pre-install,pre-upgrade
   labels:
+    {{- include "labels.common" . | nindent 4 }}
     policy.giantswarm.io/resource-kind: CronJob
     policy.giantswarm.io/resource-name: {{ .Values.name }}-intranet
     policy.giantswarm.io/resource-namespace: {{ .Release.Namespace }}

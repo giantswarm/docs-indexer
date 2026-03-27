@@ -37,7 +37,7 @@ spec:
         metadata:
           name: {{ .Values.name }}-docs
           labels:
-            app: {{ .Values.name }}
+            {{- include "labels.common" . | nindent 12 }}
             observability.giantswarm.io/tenant: giantswarm
 
         # Pod spec
@@ -46,7 +46,7 @@ spec:
             - name: {{ .Values.image.name }}
               args: ["hugo"]
               # This image is supposed to be publicly accessible
-              image: "{{ .Values.image.registry }}/giantswarm/{{ .Values.image.name }}:{{ include "image.tag" . }}"
+              image: "{{ .Values.image.registry }}/giantswarm/{{ .Values.image.name }}:{{ include .Chart.AppVersion }}"
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:

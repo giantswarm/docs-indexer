@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Prepare chart for use with Flux OCIRepository + HelmRelease
+- Use common labels consistently on all resources
+
+### Removed
+
+- Remove `app` label from resources
+
 ## [4.1.1] - 2026-01-14
 
 ### Added
