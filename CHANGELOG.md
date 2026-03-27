@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.2] - 2026-03-27
+
 ### Changed
 
 - Prepare chart for use with Flux OCIRepository + HelmRelease
@@ -143,7 +145,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release adhering to [how-to-release-a-project](https://intranet.giantswarm.io/docs/dev-and-releng/releases/how-to-release-a-project/)
 
 
-[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v4.1.1...HEAD
+[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v4.1.2...HEAD
+[4.1.2]: https://github.com/giantswarm/docs-indexer/compare/v4.1.1...v4.1.2
 [4.1.1]: https://github.com/giantswarm/docs-indexer/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/giantswarm/docs-indexer/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/giantswarm/docs-indexer/compare/v3.5.0...v4.0.0
