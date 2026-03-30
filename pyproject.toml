@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "beautifulsoup4==4.14.3",
     "certifi==2026.2.25",
-    "chardet==7.4.0.post1",
+    "chardet==7.4.0.post2",
     "click==8.3.1",
     "opensearch-py==3.1.0",
     "GitPython==3.1.46",
