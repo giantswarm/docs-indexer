@@ -9,7 +9,7 @@ dependencies = [
     "certifi==2026.4.22",
     "chardet==7.4.3",
     "click==8.3.3",
-    "opensearch-py==3.1.0",
+    "opensearch-py==3.2.0",
     "GitPython==3.1.47",
     "idna==3.13",
     "Markdown==3.10.2",
