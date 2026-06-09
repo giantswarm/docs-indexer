@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.1.3] - 2026-06-09
 
+### Added
+
+- Building the container image multi-arch, to support linux/arm64
+
 ## [4.1.2] - 2026-03-27
 
 ### Changed
