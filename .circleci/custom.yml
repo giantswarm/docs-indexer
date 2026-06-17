@@ -1,0 +1,28 @@
+# Repo-specific additions deep-merged into the generated .circleci/workflows.yml
+# at pipeline runtime (yq `*+`: maps merge, lists append). See .circleci/config.yml.
+#
+# The generated config builds the image + chart but does not cover the Python
+# unit tests this repo ships. This re-adds the build-and-test job (the same one
+# the previous hand-written config ran) so the tests keep gating every PR.
+orbs:
+  python: circleci/python@4.0.0
+
+jobs:
+  build-and-test:
+    executor:
+      name: python/default
+      tag: "3.14"
+    steps:
+    - checkout
+    - python/install-packages:
+        pkg-manager: uv
+    - run:
+        name: Run Python unit tests
+        command: |
+          uv run python common_test.py
+          uv run python hugo_test.py
+
+workflows:
+  build:
+    jobs:
+    - build-and-test: {}
