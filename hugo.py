@@ -51,6 +51,11 @@ if GITHUB_TOKEN is not None:
 # published/last modified date
 DEFAULT_DATE = datetime(1900, 1, 1, 0, 0, 0)
 
+# Matches Hugo shortcode tags in both delimiter styles: {{< ... >}} and
+# {{% ... %}}, including opening, closing (with leading /) and parameterized
+# forms. Only the tag itself is matched, so any content it wraps is kept.
+SHORTCODE_RE = re.compile(r"\{\{[<%]/?.*?[%>]\}\}")
+
 def make_github_api_request(url, token=None, max_retries=3, base_delay=1.0):
     """
     Make a GitHub API request with retry logic and proper error handling.
@@ -238,6 +243,11 @@ def get_pages(root_path):
 
 def markdown_to_text(markdown_text):
     """expects markdown unicode"""
+    # Strip Hugo shortcode tags (e.g. {{< tabs >}}, {{% steps %}}) before
+    # conversion so they don't leak into the indexed text. Content wrapped
+    # by a shortcode is preserved and parsed as regular Markdown.
+    markdown_text = SHORTCODE_RE.sub("", markdown_text)
+
     # Extensions:
     # - 'fenced_code' parses triple-backtick code blocks, so a language
     #   indicator (e.g. ```nohighlight) ends up as a CSS class on the <code>

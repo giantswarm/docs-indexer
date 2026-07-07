@@ -65,6 +65,26 @@ class TestMarkdownToText(unittest.TestCase):
         self.assertIn("Resource types", text)
         self.assertIn("Flags", text)
 
+    def test_shortcodes_stripped(self):
+        md = (
+            "Install manually.\n\n"
+            "{{< tabs >}}\n"
+            "{{< tab name=\"Krew\" >}}\n"
+            "Pull the image.\n"
+            "{{< /tab >}}\n"
+            "{{< /tabs >}}\n\n"
+            "{{% steps %}}\n"
+            "Do the thing.\n"
+            "{{% /steps %}}\n"
+        )
+        text = markdown_to_text(md)
+        self.assertNotIn("{{", text)
+        self.assertNotIn("}}", text)
+        self.assertNotIn("tabs", text)
+        self.assertNotIn("steps", text)
+        self.assertIn("Pull the image.", text)
+        self.assertIn("Do the thing.", text)
+
 
 if __name__ == '__main__':
     unittest.main()
