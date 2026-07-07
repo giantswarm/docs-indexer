@@ -1,5 +1,5 @@
 import unittest
-from hugo import get_front_matter
+from hugo import get_front_matter, markdown_to_text
 
 doc_with_yaml_front_matter = """---
 title: Node Pools
@@ -32,6 +32,15 @@ class TestFrontMatter(unittest.TestCase):
     def test_get_front_matter_none(self):
         data, text = get_front_matter(doc_without_front_matter, "nonepath")
         self.assertIs(data, None)
+
+
+class TestMarkdownToText(unittest.TestCase):
+
+    def test_fenced_code_language_indicator_stripped(self):
+        md = "Intro text.\n\n```nohighlight\nkubectl get pods\n```\n\nAfter text."
+        text = markdown_to_text(md)
+        self.assertNotIn("nohighlight", text)
+        self.assertIn("kubectl get pods", text)
 
 
 if __name__ == '__main__':

@@ -238,7 +238,10 @@ def get_pages(root_path):
 
 def markdown_to_text(markdown_text):
     """expects markdown unicode"""
-    html = markdown(markdown_text)
+    # The 'fenced_code' extension ensures triple-backtick code blocks are
+    # parsed properly, so a language indicator (e.g. ```nohighlight) ends up
+    # as a CSS class on the <code> element instead of leaking into the text.
+    html = markdown(markdown_text, extensions=["fenced_code"])
     text = html2text(html)
     text = text.replace(" | ", " ")
     text = re.sub(r"[\-]{3,}", "-", text)  # markdown tables
