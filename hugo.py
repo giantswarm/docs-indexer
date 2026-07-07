@@ -244,7 +244,9 @@ def markdown_to_text(markdown_text):
     #   element instead of leaking into the text.
     # - 'tables' parses Markdown tables into <table> markup, so the cell
     #   separators (| and ---) don't leak into the indexed text.
-    html = markdown(markdown_text, extensions=["fenced_code", "tables"])
+    # - 'attr_list' parses explicit heading anchors (e.g. ## Title {#types})
+    #   into an id attribute, so the {#...} syntax doesn't leak into the text.
+    html = markdown(markdown_text, extensions=["fenced_code", "tables", "attr_list"])
     text = html2text(html)
     return text
 

@@ -57,6 +57,14 @@ class TestMarkdownToText(unittest.TestCase):
         for cell in ("Name", "Role", "Alice", "Admin", "Bob", "User"):
             self.assertIn(cell, text)
 
+    def test_heading_anchor_stripped(self):
+        md = "## Resource types {#types}\n\nSome content.\n\n### Flags {#flags}\n\nMore."
+        text = markdown_to_text(md)
+        self.assertNotIn("{#types}", text)
+        self.assertNotIn("{#flags}", text)
+        self.assertIn("Resource types", text)
+        self.assertIn("Flags", text)
+
 
 if __name__ == '__main__':
     unittest.main()
