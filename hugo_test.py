@@ -1,5 +1,8 @@
+import os
+import shutil
+import tempfile
 import unittest
-from hugo import get_front_matter, markdown_to_text
+from hugo import get_front_matter, markdown_to_text, get_pages, collect_properties_text
 
 doc_with_yaml_front_matter = """---
 title: Node Pools
@@ -84,6 +87,103 @@ class TestMarkdownToText(unittest.TestCase):
         self.assertNotIn("steps", text)
         self.assertIn("Pull the image.", text)
         self.assertIn("Do the thing.", text)
+
+
+class TestGetPages(unittest.TestCase):
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def _write(self, *parts):
+        """Create a file (and its parent dirs) at root/parts, with dummy content."""
+        path = os.path.join(self.root, *parts)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write("content")
+        return path
+
+    def test_uris_and_index_handling(self):
+        self._write("index.md")
+        self._write("basics", "_index.md")
+        self._write("basics", "nodepools.md")
+
+        pages = get_pages(self.root)
+        by_uri = {p["uri"]: p for p in pages}
+
+        # top-level index.md maps to the root URI
+        self.assertIn("/", by_uri)
+        # _index.md yields the directory URI, without a file segment
+        self.assertIn("/basics/", by_uri)
+        # a regular page appends its filename (without .md) as the last segment
+        self.assertIn("/basics/nodepools/", by_uri)
+
+        nodepools = by_uri["/basics/nodepools/"]
+        self.assertEqual(nodepools["path"], ["basics", "nodepools"])
+        self.assertEqual(
+            nodepools["file_path"],
+            os.path.join(self.root, "basics", "nodepools.md"),
+        )
+
+    def test_uri_is_lowercased(self):
+        self._write("Advanced", "MyPage.md")
+
+        pages = get_pages(self.root)
+        by_uri = {p["uri"]: p for p in pages}
+
+        self.assertIn("/advanced/mypage/", by_uri)
+        # the URI is lowercased, but the path segments keep their original case
+        self.assertEqual(by_uri["/advanced/mypage/"]["path"], ["Advanced", "MyPage"])
+
+    def test_non_markdown_and_pruned_dirs_ignored(self):
+        self._write("notes.txt")
+        self._write("img", "diagram.md")
+        self._write(".git", "config.md")
+        self._write("real.md")
+
+        pages = get_pages(self.root)
+        uris = {p["uri"] for p in pages}
+
+        self.assertEqual(uris, {"/real/"})
+
+
+class TestCollectPropertiesText(unittest.TestCase):
+
+    def test_empty_schema(self):
+        self.assertEqual(collect_properties_text({}), [])
+
+    def test_description_only(self):
+        self.assertEqual(collect_properties_text({"description": "top"}), ["top"])
+
+    def test_nested_properties_recursion(self):
+        schema = {
+            "description": "top",
+            "properties": {
+                "spec": {
+                    "description": "spec desc",
+                    "properties": {
+                        "replicas": {"description": "number of replicas"},
+                        "name": {},  # no description, no children
+                    },
+                },
+                "status": {"description": "status desc"},
+            },
+        }
+        self.assertEqual(
+            collect_properties_text(schema),
+            [
+                "top",
+                "spec",
+                "spec desc",
+                "replicas",
+                "number of replicas",
+                "name",
+                "status",
+                "status desc",
+            ],
+        )
 
 
 if __name__ == '__main__':
