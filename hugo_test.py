@@ -42,6 +42,21 @@ class TestMarkdownToText(unittest.TestCase):
         self.assertNotIn("nohighlight", text)
         self.assertIn("kubectl get pods", text)
 
+    def test_table_separators_stripped(self):
+        md = (
+            "Intro.\n\n"
+            "| Name | Role |\n"
+            "| ---- | ---- |\n"
+            "| Alice | Admin |\n"
+            "| Bob | User |\n\n"
+            "Outro."
+        )
+        text = markdown_to_text(md)
+        self.assertNotIn("|", text)
+        self.assertNotIn("---", text)
+        for cell in ("Name", "Role", "Alice", "Admin", "Bob", "User"):
+            self.assertIn(cell, text)
+
 
 if __name__ == '__main__':
     unittest.main()
