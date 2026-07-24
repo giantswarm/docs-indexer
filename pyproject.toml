@@ -10,7 +10,7 @@ dependencies = [
     "chardet==7.4.3",
     "click==8.4.2",
     "opensearch-py==3.2.0",
-    "GitPython==3.1.50",
+    "GitPython==3.1.51",
     "idna==3.18",
     "Markdown==3.10.2",
     "prance==25.4.8.0",
