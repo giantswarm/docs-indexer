@@ -13,7 +13,7 @@ dependencies = [
     "GitPython==3.1.55",
     "idna==3.18",
     "Markdown==3.10.2",
-    "prance==25.4.8.0",
+    "prance==26.7.19.0",
     "requests==2.34.2",
     "semver==3.0.4",
     "six==1.17.0",
