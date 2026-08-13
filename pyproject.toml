@@ -12,7 +12,7 @@ dependencies = [
     "opensearch-py==3.2.0",
     "GitPython==3.1.58",
     "idna==3.18",
-    "Markdown==3.10.2",
+    "Markdown==3.10.3",
     "prance==26.7.19.0",
     "requests==2.34.2",
     "semver==3.0.4",
