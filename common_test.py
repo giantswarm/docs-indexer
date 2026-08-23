@@ -20,12 +20,11 @@ This is my body
 """
 
 
-
 class TestHTML2Text(unittest.TestCase):
-
     def test1(self):
         mytext = html2text(html)
         self.assertEqual(text, mytext)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

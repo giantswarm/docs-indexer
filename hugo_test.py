@@ -24,21 +24,18 @@ from a single place; the Control Plane.
 """
 
 
-
 class TestFrontMatter(unittest.TestCase):
-
     def test_get_front_matter_yaml(self):
         data, text = get_front_matter(doc_with_yaml_front_matter, "yamlpath")
         self.assertEqual(data["title"], "Node Pools")
         self.assertEqual(text, "This is the YAML example's text")
-    
+
     def test_get_front_matter_none(self):
         data, text = get_front_matter(doc_without_front_matter, "nonepath")
         self.assertIs(data, None)
 
 
 class TestMarkdownToText(unittest.TestCase):
-
     def test_fenced_code_language_indicator_stripped(self):
         md = "Intro text.\n\n```nohighlight\nkubectl get pods\n```\n\nAfter text."
         text = markdown_to_text(md)
@@ -61,7 +58,9 @@ class TestMarkdownToText(unittest.TestCase):
             self.assertIn(cell, text)
 
     def test_heading_anchor_stripped(self):
-        md = "## Resource types {#types}\n\nSome content.\n\n### Flags {#flags}\n\nMore."
+        md = (
+            "## Resource types {#types}\n\nSome content.\n\n### Flags {#flags}\n\nMore."
+        )
         text = markdown_to_text(md)
         self.assertNotIn("{#types}", text)
         self.assertNotIn("{#flags}", text)
@@ -72,7 +71,7 @@ class TestMarkdownToText(unittest.TestCase):
         md = (
             "Install manually.\n\n"
             "{{< tabs >}}\n"
-            "{{< tab name=\"Krew\" >}}\n"
+            '{{< tab name="Krew" >}}\n'
             "Pull the image.\n"
             "{{< /tab >}}\n"
             "{{< /tabs >}}\n\n"
@@ -90,7 +89,6 @@ class TestMarkdownToText(unittest.TestCase):
 
 
 class TestGetPages(unittest.TestCase):
-
     def setUp(self):
         self.root = tempfile.mkdtemp()
 
@@ -150,7 +148,6 @@ class TestGetPages(unittest.TestCase):
 
 
 class TestCollectPropertiesText(unittest.TestCase):
-
     def test_empty_schema(self):
         self.assertEqual(collect_properties_text({}), [])
 
@@ -186,5 +183,5 @@ class TestCollectPropertiesText(unittest.TestCase):
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
