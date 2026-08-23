@@ -21,7 +21,7 @@ This is my body
 
 
 class TestHTML2Text(unittest.TestCase):
-    def test1(self):
+    def test1(self) -> None:
         mytext = html2text(html)
         self.assertEqual(text, mytext)
 

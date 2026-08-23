@@ -31,7 +31,7 @@ index_settings = {
 }
 
 
-def html2text(html):
+def html2text(html: str) -> str:
     """
     Return the plain text (UTF-8) representation of the given HTML
     """

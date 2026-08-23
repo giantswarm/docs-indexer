@@ -1,6 +1,7 @@
 import logging
 import signal
 import sys
+from types import FrameType
 
 import click
 
@@ -9,12 +10,12 @@ import blog as blogmodule
 
 
 @click.group()
-def cli():
+def cli() -> None:
     pass
 
 
 @cli.command()
-def hugo():
+def hugo() -> None:
     """
     Index hugo site content
     """
@@ -22,14 +23,14 @@ def hugo():
 
 
 @cli.command()
-def blog():
+def blog() -> None:
     """
     Index Hubspot blog content
     """
     blogmodule.run()
 
 
-def sigterm_handler(_signo, _stack_frame):
+def sigterm_handler(_signo: int, _stack_frame: FrameType | None) -> None:
     logging.info("Terminating due to SIGTERM")
     sys.exit(0)
 

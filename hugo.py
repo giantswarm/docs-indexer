@@ -3,7 +3,6 @@ from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
 from markdown import markdown
 from subprocess import call, check_output, STDOUT
-from prance import ResolvingParser
 import git
 import json
 import logging
@@ -12,10 +11,10 @@ import re
 import shutil
 import sys
 import time
-import tempfile
 import urllib3
 import yaml
 from random import uniform
+from typing import Any, Literal
 
 try:
     from yaml import CLoader as Loader
@@ -57,7 +56,12 @@ DEFAULT_DATE = datetime(1900, 1, 1, 0, 0, 0)
 SHORTCODE_RE = re.compile(r"\{\{[<%]/?.*?[%>]\}\}")
 
 
-def make_github_api_request(url, token=None, max_retries=3, base_delay=1.0):
+def make_github_api_request(
+    url: str,
+    token: str | None = None,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+) -> tuple[bool, dict[str, Any] | None, int]:
     """
     Make a GitHub API request with retry logic and proper error handling.
 
@@ -105,11 +109,9 @@ def make_github_api_request(url, token=None, max_retries=3, base_delay=1.0):
                         time.sleep(wait_time)
                         continue
 
-                logging.error(
-                    f"GitHub API returned 403 Forbidden. This might indicate:"
-                )
-                logging.error(f"- Invalid or expired GitHub token")
-                logging.error(f"- Insufficient permissions for the repository")
+                logging.error("GitHub API returned 403 Forbidden. This might indicate:")
+                logging.error("- Invalid or expired GitHub token")
+                logging.error("- Insufficient permissions for the repository")
                 logging.error(f"- Rate limit exceeded (remaining: {remaining})")
 
                 if attempt < max_retries:
@@ -157,7 +159,7 @@ def make_github_api_request(url, token=None, max_retries=3, base_delay=1.0):
     return False, None, 0
 
 
-def clone_repo(repo_url, branch, target_path):
+def clone_repo(repo_url: str, branch: str, target_path: str) -> str | Literal[False]:
     """
     Create a clone with complete history of a git repository using a certain branch/tag in
     a given target folder. If the target folder exists, it will be removed
@@ -190,7 +192,7 @@ def clone_repo(repo_url, branch, target_path):
     return sha.decode().strip()
 
 
-def get_last_modified(path):
+def get_last_modified(path: str) -> dict[str, datetime]:
     """
     Traverses a git repository clone under the given path and
     returns a dict of last modified dates, based on the last
@@ -214,7 +216,7 @@ def get_last_modified(path):
     return out
 
 
-def get_pages(root_path):
+def get_pages(root_path: str) -> list[dict[str, Any]]:
     """
     Reads the HUGO content folder structure and returns a list of dicts, one per page.
     Each page dict has these keys:
@@ -256,7 +258,7 @@ def get_pages(root_path):
     return pages
 
 
-def markdown_to_text(markdown_text):
+def markdown_to_text(markdown_text: str) -> str:
     """expects markdown unicode"""
     # Strip Hugo shortcode tags (e.g. {{< tabs >}}, {{% steps %}}) before
     # conversion so they don't leak into the indexed text. Content wrapped
@@ -276,7 +278,9 @@ def markdown_to_text(markdown_text):
     return text
 
 
-def get_front_matter(source_text, path):
+def get_front_matter(
+    source_text: str, path: str
+) -> tuple[dict[str, Any] | None, str | None]:
     """
     Tries to find front matter in the beginning of the document and
     then returns a tuple (frontmatter (dict), text).
@@ -310,7 +314,15 @@ def get_front_matter(source_text, path):
     return (None, None)
 
 
-def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
+def index_page(
+    es: OpenSearch,
+    root_path: str,
+    path: str,
+    breadcrumb: list[str],
+    uri: str,
+    index: str,
+    last_modified: dict[str, datetime],
+) -> None:
     """
     Send one HUGO page to opensearch. Arguments:
 
@@ -331,12 +343,15 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
     # parse front matter
     try:
         data, text = get_front_matter(source_text_unicode, path)
-    except Exception as e:
+    except Exception:
         logging.warning("File in %s cannot be parsed for front matter." % path)
 
     if data is None:
         logging.warning("File in %s did not provide parseable front matter." % path)
         data = {}
+
+    if BASE_URL is None:
+        raise RuntimeError("Environment variable BASE_URL must be set")
 
     data["type"] = TYPE_LABEL
     data["uri"] = uri
@@ -369,13 +384,13 @@ def index_page(es, root_path, path, breadcrumb, uri, index, last_modified):
         logging.error(f"Error when indexing page {uri}: {e}")
 
 
-def read_crd(path):
+def read_crd(path: str) -> Any:
     with open(path, "rb") as crdfile:
         crd = yaml.load(crdfile, Loader=Loader)
         return crd
 
 
-def collect_properties_text(schema_dict):
+def collect_properties_text(schema_dict: dict[str, Any]) -> list[str]:
     """
     Recurses into an OpenAPIv3 hierarchy and returns property data valueable for full text indexing.
     That's mainly the property name and a description, if present.
@@ -390,7 +405,7 @@ def collect_properties_text(schema_dict):
     return ret
 
 
-def check_index(es, index_name):
+def check_index(es: OpenSearch, index_name: str) -> None:
     """
     Check if the index already exists
     """
@@ -400,14 +415,14 @@ def check_index(es, index_name):
         sys.exit()
 
 
-def ensure_index(es, index_name):
+def ensure_index(es: OpenSearch, index_name: str) -> None:
     es.indices.create(
         index=index_name,
         body={"settings": index_settings, "mappings": DOCS_INDEX_MAPPING},
     )
 
 
-def run():
+def run() -> None:
     """
     Main function executing docs and api-spec indexing
     """
@@ -418,7 +433,7 @@ def run():
     # Make GitHub API request with retry logic
     success, data, status_code = make_github_api_request(url, GITHUB_TOKEN)
 
-    if not success:
+    if not success or data is None:
         logging.error(
             f"Failed to get last commit SHA from GitHub API after retries. Status: {status_code}"
         )
@@ -506,7 +521,6 @@ def run():
                 pass
             try:
                 es.indices.delete(index=old_indices[0])
-            except:
+            except Exception:
                 logging.error("Could not delete index %s" % old_indices[0])
-                pass
     es.indices.put_alias(index=full_index_name, name=INDEX_NAME)

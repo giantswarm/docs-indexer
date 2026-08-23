@@ -6,6 +6,7 @@
 # - The index we create contains a date stamp in the name.
 # - Subsequent indexing will only look for changes since the last index update.
 
+from collections.abc import Iterator
 from datetime import datetime
 from datetime import timezone
 import json
@@ -14,6 +15,7 @@ import os
 import requests
 import sys
 from time import sleep
+from typing import Any
 
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
@@ -37,10 +39,13 @@ with open("mappings/blog.json", "rb") as f:
 INDEX_NAME_PREFIX = "blog"
 
 
-def get_blog_posts():
+def get_blog_posts() -> Iterator[dict[str, Any]]:
     """
     Yields all published blog posts from the hubspot API
     """
+    if HUBSPOT_ACCESS_TOKEN is None:
+        raise RuntimeError("Environment variable HUBSPOT_ACCESS_TOKEN must be set")
+
     url = f"{HUBSPOT_ENDPOINT}/cms/v3/blogs/posts"
     headers = {
         "accept": "application/json",
@@ -72,7 +77,7 @@ def get_blog_posts():
                     has_more = True
 
 
-def parse_blog_post(post):
+def parse_blog_post(post: dict[str, Any]) -> dict[str, Any]:
     """
     Takes a blog post dict like the hubspot API returns it
     and turn it into a dict that we can index.
@@ -97,7 +102,7 @@ def parse_blog_post(post):
     return ret
 
 
-def index_blog_post(es, index_name, data):
+def index_blog_post(es: OpenSearch, index_name: str, data: dict[str, Any]) -> None:
     """
     Write content for one blog post to the index
     """
@@ -108,7 +113,7 @@ def index_blog_post(es, index_name, data):
         logging.error(f"Error when indexing post {id}: {e}")
 
 
-def parse_date(datestring):
+def parse_date(datestring: str) -> datetime:
     """
     Return a datetime for a date string
     """
@@ -119,7 +124,7 @@ def parse_date(datestring):
     return dt.replace(tzinfo=timezone.utc)
 
 
-def full_index_name(dt):
+def full_index_name(dt: datetime) -> str:
     """
     Returns an index name based on our prefix and the given date string
     """
@@ -127,13 +132,13 @@ def full_index_name(dt):
     return f"{INDEX_NAME_PREFIX}-{datestring}"
 
 
-def create_index(es, index_name):
+def create_index(es: OpenSearch, index_name: str) -> None:
     es.indices.create(
         index=index_name, body={"settings": index_settings, "mappings": INDEX_MAPPING}
     )
 
 
-def set_index_alias(es, new_index_name):
+def set_index_alias(es: OpenSearch, new_index_name: str) -> None:
     """
     Ensures that index alias INDEX_NAME_PREFIX points to new_index_name only,
     deletes the old index/indices the alias pointed to.
@@ -153,18 +158,17 @@ def set_index_alias(es, new_index_name):
             try:
                 logging.info(f"Deleting index {index_name}")
                 es.indices.delete(index=index_name)
-            except:
+            except Exception:
                 logging.error("Could not delete index %s" % index_name)
-                pass
     es.indices.put_alias(index=new_index_name, name=INDEX_NAME_PREFIX)
 
 
-def run():
+def run() -> None:
     """
     Main function to trigger indexing the blog
     """
     if not HUBSPOT_ACCESS_TOKEN:
-        logging.error(f"Environment variable HUBSPOT_ACCESS_TOKEN must be set")
+        logging.error("Environment variable HUBSPOT_ACCESS_TOKEN must be set")
         sys.exit(1)
 
     if OPENSEARCH_ENDPOINT is None:
@@ -184,7 +188,7 @@ def run():
 
     create_index(es, index_name)
 
-    logging.info(f"Starting to index hubspot blog")
+    logging.info("Starting to index hubspot blog")
 
     count = 0
     for post in get_blog_posts():
@@ -197,6 +201,6 @@ def run():
         logging.info(f"Updating index alias {INDEX_NAME_PREFIX} to use {index_name}")
         set_index_alias(es, index_name)
     else:
-        logging.info(f"No new/updated blog posts found.")
+        logging.info("No new/updated blog posts found.")
 
-    logging.info(f"Done")
+    logging.info("Done")
