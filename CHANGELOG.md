@@ -121,7 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Fix intranet base url 
+- Fix intranet base url
 
 ## [3.1.0] - 2022-12-15
 
