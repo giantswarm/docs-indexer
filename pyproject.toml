@@ -11,7 +11,7 @@ dependencies = [
     "click==8.4.2",
     "opensearch-py==3.2.0",
     "GitPython==3.1.59",
-    "idna==3.18",
+    "idna==3.19",
     "Markdown==3.10.3",
     "prance==26.7.19.0",
     "requests==2.34.2",
