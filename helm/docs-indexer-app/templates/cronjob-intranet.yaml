@@ -88,3 +88,6 @@ spec:
           restartPolicy: OnFailure
           serviceAccount: {{ .Values.name }}
           serviceAccountName: {{ .Values.name }}
+          {{- with include "docs-indexer-app.podScheduling" . }}
+          {{- . | nindent 10 }}
+          {{- end }}
