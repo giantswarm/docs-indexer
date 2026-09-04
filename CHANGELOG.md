@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Give the blog indexer the same leftover handling as the hugo one. An interrupted blog run left its index behind forever: the index is created before indexing starts, and only the index the alias pointed at was ever cleaned up. Blog indices that no alias points at are now deleted at the start of each run, scoped to the `blog-<timestamp>` naming scheme.
+- Delete the blog index again when a run finds no posts, instead of leaving an empty index behind that no alias points at. The previously aliased index stays in service, as before.
+- Move the blog index alias in a single atomic `POST /_aliases` call, the same fix already made for the hugo indexer.
+- Replace a blog index left behind by an interrupted run in the same second, which pruning spares because it is the name the new run is about to use. `create_index` used to fail with `resource_already_exists_exception` in that case. Only reachable when two runs start within one second, so not something the daily schedule hits.
+
+### Changed
+
+- Move the index alias and leftover-pruning helpers into `common.py`, shared by both indexers rather than duplicated. No behaviour change for the hugo indexer.
+
 ### Added
 
 - Add `architecture` value (`""` | `amd64` | `arm64`) to pin the indexer CronJobs to a CPU architecture, plus `nodeSelector` and `tolerations` passthrough values (the job pod specs previously had no scheduling fields). Setting `arm64` renders both the `kubernetes.io/arch` node selector and the toleration for the `kubernetes.io/arch=arm64:NoSchedule` taint that Giant Swarm arm64 node pools carry; both are required, so one value drives both. Applies to all four CronJobs (docs, blog, handbook, intranet). Defaults to `""`, which renders nothing, so output is unchanged for existing users.

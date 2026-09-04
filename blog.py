@@ -18,10 +18,12 @@ from time import sleep
 from typing import Any
 
 from opensearchpy import OpenSearch
-from opensearchpy.exceptions import NotFoundError
 
 from common import html2text
+from common import index_is_complete
 from common import index_settings
+from common import prune_incomplete_indices as _prune_incomplete_indices
+from common import switch_alias
 
 HUBSPOT_ACCESS_TOKEN = os.getenv("HUBSPOT_ACCESS_TOKEN")
 OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT")
@@ -37,6 +39,10 @@ with open("mappings/blog.json", "rb") as f:
 
 # Name prefix and alias for our index. Must not contain dashes!
 INDEX_NAME_PREFIX = "blog"
+
+# Indices this indexer creates are named after the prefix plus a TIME_FORMAT_INDEXNAME
+# timestamp, e.g. blog-2026-08-20-08-51-12.
+INDEX_SUFFIX_PATTERN = r"\d{4}(?:-\d{2}){5}"
 
 
 def get_blog_posts() -> Iterator[dict[str, Any]]:
@@ -143,24 +149,11 @@ def set_index_alias(es: OpenSearch, new_index_name: str) -> None:
     Ensures that index alias INDEX_NAME_PREFIX points to new_index_name only,
     deletes the old index/indices the alias pointed to.
     """
-    if es.indices.exists_alias(name=INDEX_NAME_PREFIX):
-        alias = es.indices.get_alias(name=INDEX_NAME_PREFIX)
-        for index_name in list(alias.keys()):
-            logging.info(f"Removing alias {INDEX_NAME_PREFIX} => {index_name}")
-            try:
-                es.indices.delete_alias(index=index_name, name=INDEX_NAME_PREFIX)
-            except NotFoundError:
-                logging.error(
-                    f"Could not delete index alias {INDEX_NAME_PREFIX} => {index_name} (not found)"
-                )
-                pass
+    switch_alias(es, INDEX_NAME_PREFIX, new_index_name)
 
-            try:
-                logging.info(f"Deleting index {index_name}")
-                es.indices.delete(index=index_name)
-            except Exception:
-                logging.error("Could not delete index %s" % index_name)
-    es.indices.put_alias(index=new_index_name, name=INDEX_NAME_PREFIX)
+
+def prune_incomplete_indices(es: OpenSearch, keep: str) -> None:
+    _prune_incomplete_indices(es, INDEX_NAME_PREFIX, INDEX_SUFFIX_PATTERN, keep)
 
 
 def run() -> None:
@@ -184,6 +177,21 @@ def run() -> None:
     now_date = datetime.utcnow()
     index_name = full_index_name(now_date)
 
+    # Leftovers of runs that never reached the alias switch. The index about to
+    # be created is kept, so this cannot collect the one this run is filling.
+    prune_incomplete_indices(es, keep=index_name)
+
+    # An index already under this name is a leftover of an earlier run in the
+    # same second, which pruning spares because it is the name we are about to
+    # use. Only replace it while no alias points at it.
+    if es.indices.exists(index=index_name) and not index_is_complete(
+        es, INDEX_NAME_PREFIX, index_name
+    ):
+        logging.warning(
+            f"Deleting incomplete index {index_name} left by an earlier run"
+        )
+        es.indices.delete(index=index_name)
+
     logging.info(f"Creating new index {index_name}")
 
     create_index(es, index_name)
@@ -201,6 +209,9 @@ def run() -> None:
         logging.info(f"Updating index alias {INDEX_NAME_PREFIX} to use {index_name}")
         set_index_alias(es, index_name)
     else:
-        logging.info("No new/updated blog posts found.")
+        # Leaving the index would keep an empty one around that no alias points
+        # at, and the previous index stays in service.
+        logging.info(f"No blog posts found, deleting empty index {index_name}")
+        es.indices.delete(index=index_name)
 
     logging.info("Done")

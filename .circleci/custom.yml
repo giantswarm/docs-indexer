@@ -21,6 +21,7 @@ jobs:
         command: |
           uv run python common_test.py
           uv run python hugo_test.py
+          uv run python blog_test.py
 
 workflows:
   build:

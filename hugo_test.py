@@ -4,12 +4,10 @@ import subprocess
 import tempfile
 import unittest
 from datetime import datetime
-from typing import Any, cast
 from unittest import mock
 
-from opensearchpy import OpenSearch
-
 import hugo
+from fakes import fake_client
 from hugo import (
     collect_properties_text,
     get_front_matter,
@@ -295,88 +293,6 @@ class TestGetLastModified(unittest.TestCase):
         self.assertEqual(last_modified["base.md"].month, 1)
 
 
-class FakeIndices:
-    """
-    The subset of the opensearchpy indices client the index/alias handling uses,
-    backed by dicts. Records deletions so tests can assert on them.
-    """
-
-    def __init__(
-        self,
-        indices: list[str] | None = None,
-        aliases: dict[str, list[str]] | None = None,
-    ) -> None:
-        self.indices = set(indices or [])
-        self.aliases = {k: list(v) for k, v in (aliases or {}).items()}
-        self.deleted: list[str] = []
-
-    def exists(self, index: str) -> bool:
-        return index in self.indices
-
-    def exists_alias(self, name: str, index: str | None = None) -> bool:
-        if name not in self.aliases:
-            return False
-        if index is None:
-            return True
-        return index in self.aliases[name]
-
-    def get_alias(
-        self,
-        name: str | None = None,
-        index: str | None = None,
-        ignore_unavailable: bool = False,
-    ) -> dict[str, Any]:
-        if name is not None:
-            return {i: {"aliases": {name: {}}} for i in self.aliases[name]}
-
-        # index pattern form: every matching index with the aliases it has, if any
-        prefix = index.rstrip("*") if index is not None else ""
-        return {
-            i: {
-                "aliases": {
-                    a: {} for a, members in self.aliases.items() if i in members
-                }
-            }
-            for i in sorted(self.indices)
-            if i.startswith(prefix)
-        }
-
-    def delete(self, index: str) -> None:
-        self.indices.discard(index)
-        self.deleted.append(index)
-
-    def update_aliases(self, body: dict[str, Any]) -> None:
-        for action in body["actions"]:
-            if "remove" in action:
-                remove = action["remove"]
-                self.aliases[remove["alias"]].remove(remove["index"])
-            if "add" in action:
-                add = action["add"]
-                if add["index"] not in self.indices:
-                    raise AssertionError(f"aliasing missing index {add['index']}")
-                aliased = self.aliases.setdefault(add["alias"], [])
-                # adding an alias an index already has is a no-op in OpenSearch
-                if add["index"] not in aliased:
-                    aliased.append(add["index"])
-
-
-class FakeOpenSearch:
-    def __init__(
-        self,
-        indices: list[str] | None = None,
-        aliases: dict[str, list[str]] | None = None,
-    ) -> None:
-        self.indices = FakeIndices(indices, aliases)
-
-
-def fake_client(
-    indices: list[str] | None = None,
-    aliases: dict[str, list[str]] | None = None,
-) -> tuple[OpenSearch, FakeIndices]:
-    fake = FakeOpenSearch(indices, aliases)
-    return cast(OpenSearch, fake), fake.indices
-
-
 @mock.patch.object(hugo, "INDEX_NAME", "docs")
 class TestCheckIndex(unittest.TestCase):
     def test_missing_index_proceeds(self) -> None:
@@ -463,29 +379,6 @@ class TestSwitchAlias(unittest.TestCase):
         hugo.switch_alias(es, "docs-abc")
 
         self.assertEqual(indices.aliases["docs"], ["docs-abc"])
-
-
-@mock.patch.object(hugo, "INDEX_NAME", "docs")
-class TestIsOwnIndex(unittest.TestCase):
-    def test_index_named_after_a_commit_sha(self) -> None:
-        self.assertTrue(hugo.is_own_index(f"docs-{'a' * 40}"))
-        self.assertTrue(
-            hugo.is_own_index("docs-790c1c6b40430ef27e6c306c093a30c54e484777")
-        )
-
-    def test_other_names_are_not_ours(self) -> None:
-        for name in (
-            "docs",
-            "docs-archive",
-            f"docs-{'a' * 39}",
-            f"docs-{'a' * 41}",
-            f"docs-{'A' * 40}",
-            f"docs-{'z' * 40}",
-            f"handbook-{'a' * 40}",
-            f"docs-{'a' * 40}-copy",
-            f"olddocs-{'a' * 40}",
-        ):
-            self.assertFalse(hugo.is_own_index(name), name)
 
 
 @mock.patch.object(hugo, "INDEX_NAME", "docs")
