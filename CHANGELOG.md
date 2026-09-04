@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `architecture` value (`""` | `amd64` | `arm64`) to pin the indexer CronJobs to a CPU architecture, plus `nodeSelector` and `tolerations` passthrough values (the job pod specs previously had no scheduling fields). Setting `arm64` renders both the `kubernetes.io/arch` node selector and the toleration for the `kubernetes.io/arch=arm64:NoSchedule` taint that Giant Swarm arm64 node pools carry; both are required, so one value drives both. Applies to all four CronJobs (docs, blog, handbook, intranet). Defaults to `""`, which renders nothing, so output is unchanged for existing users.
 - Add a `helm-unittest` suite for the `docs-indexer-app.podScheduling` helper (13 cases), run with `make helm-unittest`. Local only for now, since chart unit tests belong in the generated workflow set rather than a hand-written per-repo workflow.
 
+### Fixed
+
+- Treat the index alias as the marker that a hugo (docs/handbook/intranet) indexing run completed. A run killed before the alias switch used to leave a partial index behind that every later run for the same commit SHA skipped as "already exists" while exiting 0, so the CronJob reported success without indexing anything. An index that no alias points at is now treated as incomplete: it gets deleted and indexed again.
+- Move the index alias to the new index in a single atomic `POST /_aliases` call, instead of deleting the old alias and adding the new one separately, which left the alias missing entirely if the run was killed in between. Predecessor indices are deleted only after the alias has moved.
+- Determine each Markdown file's last modification date in one walk of the git history, instead of one history walk per file. The per-file walk was what exhausted the CronJob's 600s deadline: on `giantswarm/docs` (6630 Markdown files, 4379 commits) it takes 171s locally and roughly 595s on a cluster node, leaving no time to index. The single walk takes 0.28s for the same repo, and returns identical dates for all 6630 files.
+- Delete this indexer's indices that no alias points at, at the start of every run. Leftovers of runs that never reached the alias switch used to accumulate indefinitely, since only the index the alias pointed at was ever cleaned up. Deletion is scoped to indices named after the alias plus a 40-character commit SHA, so indices created by anything else are left alone.
+
+### Removed
+
+- Remove the `GitPython` dependency, no longer used now that the git history is read with `git log` directly.
+
 ## [4.1.3] - 2026-06-09
 
 ### Added
