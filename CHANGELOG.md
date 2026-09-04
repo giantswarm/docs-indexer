@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `architecture` value (`""` | `amd64` | `arm64`) to pin the indexer CronJobs to a CPU architecture, plus `nodeSelector` and `tolerations` passthrough values (the job pod specs previously had no scheduling fields). Setting `arm64` renders both the `kubernetes.io/arch` node selector and the toleration for the `kubernetes.io/arch=arm64:NoSchedule` taint that Giant Swarm arm64 node pools carry; both are required, so one value drives both. Applies to all four CronJobs (docs, blog, handbook, intranet). Defaults to `""`, which renders nothing, so output is unchanged for existing users.
+- Add a `helm-unittest` suite for the `docs-indexer-app.podScheduling` helper (13 cases), run with `make helm-unittest`. Local only for now, since chart unit tests belong in the generated workflow set rather than a hand-written per-repo workflow.
+
 ## [4.1.3] - 2026-06-09
 
 ### Added
