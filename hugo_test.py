@@ -1,8 +1,22 @@
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
-from hugo import get_front_matter, markdown_to_text, get_pages, collect_properties_text
+from datetime import datetime
+from typing import Any, cast
+from unittest import mock
+
+from opensearchpy import OpenSearch
+
+import hugo
+from hugo import (
+    collect_properties_text,
+    get_front_matter,
+    get_last_modified,
+    get_pages,
+    markdown_to_text,
+)
 
 doc_with_yaml_front_matter = """---
 title: Node Pools
@@ -182,6 +196,361 @@ class TestCollectPropertiesText(unittest.TestCase):
                 "status desc",
             ],
         )
+
+
+class TestGetLastModified(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = tempfile.mkdtemp()
+        self._git("init", "-q", "-b", "main")
+        self._git("config", "user.email", "indexer@example.com")
+        self._git("config", "user.name", "Indexer")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def _git(self, *args: str) -> None:
+        subprocess.run(
+            ["git", "-C", self.root, *args],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def _commit(self, date: str, *paths: str) -> None:
+        """Write and commit the given paths, with date as the commit date."""
+        for rel in paths:
+            path = os.path.join(self.root, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "a") as f:
+                f.write("content\n")
+        self._git("add", "-A")
+        subprocess.run(
+            ["git", "-C", self.root, "commit", "-q", "-m", f"commit {date}"],
+            check=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_DATE": date,
+                "GIT_COMMITTER_DATE": date,
+            },
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    @staticmethod
+    def _expected(date: str) -> datetime:
+        """The naive local datetime get_last_modified reports for a commit date."""
+        return datetime.fromtimestamp(datetime.fromisoformat(date).timestamp())
+
+    def test_last_commit_per_file(self) -> None:
+        self._commit("2026-01-01T00:00:00+00:00", "a.md", "deep/nested/b.md")
+        self._commit("2026-02-02T00:00:00+00:00", "deep/nested/b.md")
+
+        last_modified = get_last_modified(self.root)
+
+        self.assertEqual(
+            last_modified["a.md"], self._expected("2026-01-01T00:00:00+00:00")
+        )
+        # the later commit wins for the file it touched, the earlier one does not
+        self.assertEqual(
+            last_modified["deep/nested/b.md"],
+            self._expected("2026-02-02T00:00:00+00:00"),
+        )
+
+    def test_paths_are_relative_to_the_repo_root(self) -> None:
+        self._commit("2026-01-01T00:00:00+00:00", "src/content/page.md")
+
+        self.assertIn("src/content/page.md", get_last_modified(self.root))
+
+    def test_non_markdown_files_are_ignored(self) -> None:
+        self._commit("2026-01-01T00:00:00+00:00", "a.md", "notes.txt", "img/x.png")
+
+        last_modified = get_last_modified(self.root)
+
+        self.assertEqual(list(last_modified), ["a.md"])
+
+    def test_merge_commit_does_not_claim_the_files(self) -> None:
+        self._commit("2026-01-01T00:00:00+00:00", "base.md")
+        self._git("checkout", "-q", "-b", "side")
+        self._commit("2026-02-02T00:00:00+00:00", "side.md")
+        self._git("checkout", "-q", "main")
+        self._commit("2026-03-03T00:00:00+00:00", "main.md")
+        self._git(
+            "-c",
+            "user.email=indexer@example.com",
+            "-c",
+            "user.name=Indexer",
+            "merge",
+            "-q",
+            "--no-ff",
+            "-m",
+            "merge side",
+            "side",
+        )
+
+        last_modified = get_last_modified(self.root)
+
+        # the merge commit's own date must not overwrite the real edit dates
+        self.assertEqual(last_modified["side.md"].month, 2)
+        self.assertEqual(last_modified["main.md"].month, 3)
+        self.assertEqual(last_modified["base.md"].month, 1)
+
+
+class FakeIndices:
+    """
+    The subset of the opensearchpy indices client the index/alias handling uses,
+    backed by dicts. Records deletions so tests can assert on them.
+    """
+
+    def __init__(
+        self,
+        indices: list[str] | None = None,
+        aliases: dict[str, list[str]] | None = None,
+    ) -> None:
+        self.indices = set(indices or [])
+        self.aliases = {k: list(v) for k, v in (aliases or {}).items()}
+        self.deleted: list[str] = []
+
+    def exists(self, index: str) -> bool:
+        return index in self.indices
+
+    def exists_alias(self, name: str, index: str | None = None) -> bool:
+        if name not in self.aliases:
+            return False
+        if index is None:
+            return True
+        return index in self.aliases[name]
+
+    def get_alias(
+        self,
+        name: str | None = None,
+        index: str | None = None,
+        ignore_unavailable: bool = False,
+    ) -> dict[str, Any]:
+        if name is not None:
+            return {i: {"aliases": {name: {}}} for i in self.aliases[name]}
+
+        # index pattern form: every matching index with the aliases it has, if any
+        prefix = index.rstrip("*") if index is not None else ""
+        return {
+            i: {
+                "aliases": {
+                    a: {} for a, members in self.aliases.items() if i in members
+                }
+            }
+            for i in sorted(self.indices)
+            if i.startswith(prefix)
+        }
+
+    def delete(self, index: str) -> None:
+        self.indices.discard(index)
+        self.deleted.append(index)
+
+    def update_aliases(self, body: dict[str, Any]) -> None:
+        for action in body["actions"]:
+            if "remove" in action:
+                remove = action["remove"]
+                self.aliases[remove["alias"]].remove(remove["index"])
+            if "add" in action:
+                add = action["add"]
+                if add["index"] not in self.indices:
+                    raise AssertionError(f"aliasing missing index {add['index']}")
+                aliased = self.aliases.setdefault(add["alias"], [])
+                # adding an alias an index already has is a no-op in OpenSearch
+                if add["index"] not in aliased:
+                    aliased.append(add["index"])
+
+
+class FakeOpenSearch:
+    def __init__(
+        self,
+        indices: list[str] | None = None,
+        aliases: dict[str, list[str]] | None = None,
+    ) -> None:
+        self.indices = FakeIndices(indices, aliases)
+
+
+def fake_client(
+    indices: list[str] | None = None,
+    aliases: dict[str, list[str]] | None = None,
+) -> tuple[OpenSearch, FakeIndices]:
+    fake = FakeOpenSearch(indices, aliases)
+    return cast(OpenSearch, fake), fake.indices
+
+
+@mock.patch.object(hugo, "INDEX_NAME", "docs")
+class TestCheckIndex(unittest.TestCase):
+    def test_missing_index_proceeds(self) -> None:
+        es, indices = fake_client()
+
+        hugo.check_index(es, "docs-abc")
+
+        self.assertEqual(indices.deleted, [])
+
+    def test_aliased_index_exits(self) -> None:
+        es, indices = fake_client(indices=["docs-abc"], aliases={"docs": ["docs-abc"]})
+
+        with self.assertRaises(SystemExit) as cm:
+            hugo.check_index(es, "docs-abc")
+
+        # a complete index is nothing to do, not a failure
+        self.assertIn(cm.exception.code, (None, 0))
+        self.assertEqual(indices.deleted, [])
+
+    def test_unaliased_index_is_deleted(self) -> None:
+        # what a run killed before the alias switch leaves behind
+        es, indices = fake_client(
+            indices=["docs-abc", "docs-old"], aliases={"docs": ["docs-old"]}
+        )
+
+        hugo.check_index(es, "docs-abc")
+
+        self.assertEqual(indices.deleted, ["docs-abc"])
+        self.assertNotIn("docs-abc", indices.indices)
+
+    def test_unaliased_index_without_any_alias_is_deleted(self) -> None:
+        es, indices = fake_client(indices=["docs-abc"])
+
+        hugo.check_index(es, "docs-abc")
+
+        self.assertEqual(indices.deleted, ["docs-abc"])
+
+
+@mock.patch.object(hugo, "INDEX_NAME", "docs")
+class TestSwitchAlias(unittest.TestCase):
+    def test_first_run_adds_alias(self) -> None:
+        es, indices = fake_client(indices=["docs-abc"])
+
+        hugo.switch_alias(es, "docs-abc")
+
+        self.assertEqual(indices.aliases["docs"], ["docs-abc"])
+        self.assertEqual(indices.deleted, [])
+
+    def test_previous_index_is_replaced_and_deleted(self) -> None:
+        es, indices = fake_client(
+            indices=["docs-abc", "docs-old"], aliases={"docs": ["docs-old"]}
+        )
+
+        hugo.switch_alias(es, "docs-abc")
+
+        self.assertEqual(indices.aliases["docs"], ["docs-abc"])
+        self.assertEqual(indices.deleted, ["docs-old"])
+
+    def test_multiple_previous_indices_are_replaced_and_deleted(self) -> None:
+        es, indices = fake_client(
+            indices=["docs-abc", "docs-old", "docs-older"],
+            aliases={"docs": ["docs-old", "docs-older"]},
+        )
+
+        hugo.switch_alias(es, "docs-abc")
+
+        self.assertEqual(indices.aliases["docs"], ["docs-abc"])
+        self.assertEqual(sorted(indices.deleted), ["docs-old", "docs-older"])
+
+    def test_new_index_is_never_deleted(self) -> None:
+        es, indices = fake_client(indices=["docs-abc"], aliases={"docs": ["docs-abc"]})
+
+        hugo.switch_alias(es, "docs-abc")
+
+        self.assertEqual(indices.aliases["docs"], ["docs-abc"])
+        self.assertEqual(indices.deleted, [])
+
+    def test_undeletable_previous_index_does_not_fail_the_run(self) -> None:
+        es, indices = fake_client(
+            indices=["docs-abc", "docs-old"], aliases={"docs": ["docs-old"]}
+        )
+        indices.delete = mock.Mock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
+
+        hugo.switch_alias(es, "docs-abc")
+
+        self.assertEqual(indices.aliases["docs"], ["docs-abc"])
+
+
+@mock.patch.object(hugo, "INDEX_NAME", "docs")
+class TestIsOwnIndex(unittest.TestCase):
+    def test_index_named_after_a_commit_sha(self) -> None:
+        self.assertTrue(hugo.is_own_index(f"docs-{'a' * 40}"))
+        self.assertTrue(
+            hugo.is_own_index("docs-790c1c6b40430ef27e6c306c093a30c54e484777")
+        )
+
+    def test_other_names_are_not_ours(self) -> None:
+        for name in (
+            "docs",
+            "docs-archive",
+            f"docs-{'a' * 39}",
+            f"docs-{'a' * 41}",
+            f"docs-{'A' * 40}",
+            f"docs-{'z' * 40}",
+            f"handbook-{'a' * 40}",
+            f"docs-{'a' * 40}-copy",
+            f"olddocs-{'a' * 40}",
+        ):
+            self.assertFalse(hugo.is_own_index(name), name)
+
+
+@mock.patch.object(hugo, "INDEX_NAME", "docs")
+class TestPruneIncompleteIndices(unittest.TestCase):
+    def setUp(self) -> None:
+        self.new = f"docs-{'a' * 40}"
+        self.live = f"docs-{'b' * 40}"
+        self.orphan = f"docs-{'c' * 40}"
+
+    def test_unaliased_indices_are_deleted(self) -> None:
+        es, indices = fake_client(
+            indices=[self.new, self.live, self.orphan],
+            aliases={"docs": [self.live]},
+        )
+
+        hugo.prune_incomplete_indices(es, keep=self.new)
+
+        self.assertEqual(indices.deleted, [self.orphan])
+
+    def test_kept_index_survives(self) -> None:
+        # the index for the commit being handled is the caller's business
+        es, indices = fake_client(indices=[self.new])
+
+        hugo.prune_incomplete_indices(es, keep=self.new)
+
+        self.assertEqual(indices.deleted, [])
+
+    def test_aliased_index_survives(self) -> None:
+        es, indices = fake_client(indices=[self.live], aliases={"docs": [self.live]})
+
+        hugo.prune_incomplete_indices(es, keep=self.new)
+
+        self.assertEqual(indices.deleted, [])
+
+    def test_indices_outside_our_naming_scheme_survive(self) -> None:
+        es, indices = fake_client(indices=["docs-archive", "docs-2026-08-28"])
+
+        hugo.prune_incomplete_indices(es, keep=self.new)
+
+        self.assertEqual(indices.deleted, [])
+
+    def test_other_index_sets_survive(self) -> None:
+        es, indices = fake_client(indices=[f"handbook-{'c' * 40}"])
+
+        hugo.prune_incomplete_indices(es, keep=self.new)
+
+        self.assertEqual(indices.deleted, [])
+
+    def test_undeletable_index_does_not_fail_the_run(self) -> None:
+        es, indices = fake_client(indices=[self.orphan])
+        indices.delete = mock.Mock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
+
+        hugo.prune_incomplete_indices(es, keep=self.new)
+
+
+class TestIndexCompletenessRoundTrip(unittest.TestCase):
+    @mock.patch.object(hugo, "INDEX_NAME", "docs")
+    def test_index_counts_as_complete_only_after_the_alias_switch(self) -> None:
+        es, indices = fake_client(indices=["docs-abc"])
+
+        self.assertFalse(hugo.index_is_complete(es, "docs-abc"))
+
+        hugo.switch_alias(es, "docs-abc")
+
+        self.assertTrue(hugo.index_is_complete(es, "docs-abc"))
 
 
 if __name__ == "__main__":

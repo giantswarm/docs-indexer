@@ -1,9 +1,7 @@
 from datetime import datetime
 from opensearchpy import OpenSearch
-from opensearchpy.exceptions import NotFoundError
 from markdown import markdown
 from subprocess import call, check_output, STDOUT
-import git
 import json
 import logging
 import os
@@ -199,19 +197,39 @@ def get_last_modified(path: str) -> dict[str, datetime]:
     commit to each Markdown file. This requires a git repo clone
     with full history (no shallow clone).
     """
-    out = {}
+    out: dict[str, datetime] = {}
 
     logging.info(f"Path is {path}")
 
-    repo = git.Repo(path)
-    tree = repo.tree()
+    # One walk of the history, newest commit first, so the first time a file
+    # appears is its last modification. Asking git per file costs a full history
+    # walk each time, which does not finish in the job's deadline.
+    log = check_output(
+        [
+            "git",
+            "-C",
+            path,
+            "-c",
+            "core.quotepath=false",
+            "log",
+            "--no-renames",
+            "--name-only",
+            "--format=%x00%ct",
+        ],
+        shell=False,
+    ).decode(errors="replace")
 
-    for blob in tree.traverse():
-        if not blob.path.endswith(".md"):
+    # %x00 starts each record, so a record is a commit timestamp followed by the
+    # paths that commit touched. Merge commits contribute no paths.
+    for record in log.split("\0"):
+        lines = record.strip("\n").split("\n")
+        if not lines[0]:
             continue
-        gen = list(repo.iter_commits(paths=blob.path, max_count=1))
-        commit = gen[0]
-        out[blob.path] = datetime.fromtimestamp(commit.committed_date)
+
+        committed_date = datetime.fromtimestamp(int(lines[0]))
+        for file_path in lines[1:]:
+            if file_path.endswith(".md") and file_path not in out:
+                out[file_path] = committed_date
 
     return out
 
@@ -405,14 +423,32 @@ def collect_properties_text(schema_dict: dict[str, Any]) -> list[str]:
     return ret
 
 
+def index_is_complete(es: OpenSearch, index_name: str) -> bool:
+    """
+    Report whether the index is complete. The alias is moved as the very last
+    step of a run, so an index that no alias points at is one an unfinished run
+    left behind, however many documents it holds.
+    """
+    return bool(es.indices.exists_alias(name=INDEX_NAME, index=index_name))
+
+
 def check_index(es: OpenSearch, index_name: str) -> None:
     """
-    Check if the index already exists
+    Exit without indexing if the index for this commit is already complete.
+    An incomplete index is deleted, so this run indexes into a fresh one.
     """
-    # Test whether this index already exists
-    if es.indices.exists(index=index_name):
-        logging.info(f"Index {index_name} already exists.")
+    if not es.indices.exists(index=index_name):
+        return
+
+    if index_is_complete(es, index_name):
+        logging.info(f"Index {index_name} already exists and is complete.")
         sys.exit()
+
+    logging.warning(
+        f"Index {index_name} exists but no {INDEX_NAME} alias points at it, "
+        "so it is incomplete. Deleting it and indexing again."
+    )
+    es.indices.delete(index=index_name)
 
 
 def ensure_index(es: OpenSearch, index_name: str) -> None:
@@ -420,6 +456,59 @@ def ensure_index(es: OpenSearch, index_name: str) -> None:
         index=index_name,
         body={"settings": index_settings, "mappings": DOCS_INDEX_MAPPING},
     )
+
+
+def is_own_index(index_name: str) -> bool:
+    """
+    Report whether the index follows this indexer's naming scheme, the alias name
+    plus a commit SHA. Scopes deletion to indices this indexer created.
+    """
+    pattern = rf"{re.escape(str(INDEX_NAME))}-[0-9a-f]{{40}}"
+    return re.fullmatch(pattern, index_name) is not None
+
+
+def prune_incomplete_indices(es: OpenSearch, keep: str) -> None:
+    """
+    Delete this indexer's indices that no alias points at, except keep. Each one
+    is a leftover of a run that never reached the alias switch.
+    """
+    indices = es.indices.get_alias(index=f"{INDEX_NAME}-*", ignore_unavailable=True)
+
+    for name, entry in indices.items():
+        if name == keep or entry.get("aliases") or not is_own_index(name):
+            continue
+
+        logging.warning(f"Deleting incomplete index {name} left by an earlier run")
+        try:
+            es.indices.delete(index=name)
+        except Exception:
+            logging.error(f"Could not delete index {name}")
+
+
+def switch_alias(es: OpenSearch, index_name: str) -> None:
+    """
+    Move the INDEX_NAME alias to index_name in one atomic step, then delete the
+    indices it pointed at before. Removing and adding separately would leave the
+    alias missing entirely if the run is killed in between.
+    """
+    previous: list[str] = []
+    if es.indices.exists_alias(name=INDEX_NAME):
+        previous = [i for i in es.indices.get_alias(name=INDEX_NAME) if i != index_name]
+
+    actions: list[dict[str, Any]] = [
+        {"remove": {"index": i, "alias": INDEX_NAME}} for i in previous
+    ]
+    actions.append({"add": {"index": index_name, "alias": INDEX_NAME}})
+
+    logging.info(f"Moving alias {INDEX_NAME} to index {index_name}")
+    es.indices.update_aliases(body={"actions": actions})
+
+    for old_index in previous:
+        logging.info(f"Deleting previous index {old_index}")
+        try:
+            es.indices.delete(index=old_index)
+        except Exception:
+            logging.error(f"Could not delete index {old_index}")
 
 
 def run() -> None:
@@ -457,7 +546,11 @@ def run() -> None:
 
     index_name = f"{INDEX_NAME}-{data['sha']}"
 
-    # Check index existence, exit if exists
+    # Leftovers of earlier commits. The index for this commit is kept, so the
+    # check below stays the only place deciding what to do about it.
+    prune_incomplete_indices(es, keep=index_name)
+
+    # Check index existence, exit if complete
     check_index(es, index_name)
 
     # repo name from URL
@@ -505,22 +598,5 @@ def run() -> None:
             last_modified,
         )
 
-    # remove old index if existed, re-create alias
-    if es.indices.exists_alias(name=INDEX_NAME):
-        old_index = es.indices.get_alias(name=INDEX_NAME)
-
-        # here we assume there is only one index behind this alias
-        old_indices = list(old_index.keys())
-
-        if len(old_indices) > 0:
-            logging.info("Old index on alias is: %s" % old_indices[0])
-            try:
-                es.indices.delete_alias(index=old_indices[0], name=INDEX_NAME)
-            except NotFoundError:
-                logging.error("Could not delete index alias for %s" % old_indices[0])
-                pass
-            try:
-                es.indices.delete(index=old_indices[0])
-            except Exception:
-                logging.error("Could not delete index %s" % old_indices[0])
-    es.indices.put_alias(index=full_index_name, name=INDEX_NAME)
+    # mark this index as the complete one and retire its predecessors
+    switch_alias(es, full_index_name)
