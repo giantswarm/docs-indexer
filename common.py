@@ -1,4 +1,10 @@
+import logging
+import re
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
 from bs4 import BeautifulSoup
+from opensearchpy import OpenSearch
 
 # Common settings for all opensearch indexes
 index_settings = {
@@ -37,3 +43,94 @@ def html2text(html: str) -> str:
     """
     parser = BeautifulSoup(html, features="html.parser")
     return "".join(parser.find_all(string=True))
+
+
+# An index carries no alias until the very last step of a run, so "unaliased" on
+# its own cannot tell a leftover from an index a run is still filling. The jobs
+# are capped at 600s (activeDeadlineSeconds), so nothing older than this can
+# still be in flight.
+IN_FLIGHT_GRACE = timedelta(minutes=15)
+
+
+def index_created_at(entry: dict[str, Any]) -> datetime:
+    """
+    Creation date from an index entry as returned by indices.get().
+    """
+    return datetime.fromtimestamp(
+        int(entry["settings"]["index"]["creation_date"]) / 1000, tz=timezone.utc
+    )
+
+
+def index_may_be_in_flight(es: OpenSearch, index_name: str) -> bool:
+    """
+    Report whether another run may still be filling this index. Deleting one
+    that is in flight is destructive out of proportion to the gain: the run that
+    owns it keeps writing, OpenSearch recreates it by auto-create with dynamic
+    mappings and default settings, and that run then puts the live alias on it.
+    """
+    entry = es.indices.get(index=index_name)[index_name]
+    return datetime.now(timezone.utc) - index_created_at(entry) < IN_FLIGHT_GRACE
+
+
+def index_is_complete(es: OpenSearch, alias: str, index_name: str) -> bool:
+    """
+    Report whether the index is complete. The alias is moved as the very last
+    step of a run, so an index that no alias points at is one an unfinished run
+    left behind, however many documents it holds.
+    """
+    return bool(es.indices.exists_alias(name=alias, index=index_name))
+
+
+def switch_alias(es: OpenSearch, alias: str, index_name: str) -> None:
+    """
+    Move alias to index_name in one atomic step, then delete the indices it
+    pointed at before. Removing and adding separately would leave the alias
+    missing entirely if the run is killed in between.
+    """
+    previous: list[str] = []
+    if es.indices.exists_alias(name=alias):
+        previous = [i for i in es.indices.get_alias(name=alias) if i != index_name]
+
+    actions: list[dict[str, Any]] = [
+        {"remove": {"index": i, "alias": alias}} for i in previous
+    ]
+    actions.append({"add": {"index": index_name, "alias": alias}})
+
+    logging.info(f"Moving alias {alias} to index {index_name}")
+    es.indices.update_aliases(body={"actions": actions})
+
+    for old_index in previous:
+        logging.info(f"Deleting previous index {old_index}")
+        try:
+            es.indices.delete(index=old_index)
+        except Exception:
+            logging.error(f"Could not delete index {old_index}")
+
+
+def prune_incomplete_indices(
+    es: OpenSearch, alias: str, suffix_pattern: str, keep: str
+) -> None:
+    """
+    Delete indices of this index set that no alias points at, except keep. Each
+    one is a leftover of a run that never reached the alias switch. suffix_pattern
+    matches what an indexer appends to alias, so deletion cannot reach an index
+    created by anything else, and indices young enough to still be in flight are
+    left alone.
+    """
+    own = re.compile(rf"{re.escape(alias)}-{suffix_pattern}")
+    indices = es.indices.get(index=f"{alias}-*", ignore_unavailable=True)
+    now = datetime.now(timezone.utc)
+
+    for name, entry in indices.items():
+        if name == keep or entry.get("aliases") or not own.fullmatch(name):
+            continue
+
+        if now - index_created_at(entry) < IN_FLIGHT_GRACE:
+            logging.info(f"Leaving {name} alone, a run may still be filling it")
+            continue
+
+        logging.warning(f"Deleting incomplete index {name} left by an earlier run")
+        try:
+            es.indices.delete(index=name)
+        except Exception:
+            logging.error(f"Could not delete index {name}")
