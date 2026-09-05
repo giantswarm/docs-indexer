@@ -8,17 +8,21 @@ Expand the name of the chart.
 
 {{/*
 Create chart name and version as used by the chart label.
+
+Truncating at 63 can land mid-separator, and a label value has to end
+alphanumeric. `trimSuffix "-"` only covers a dash, while a dev chart version
+carries dots, so trailing separators are stripped by pattern instead.
 */}}
 {{- define "chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- regexReplaceAll "[^A-Za-z0-9]+$" (printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63) "" -}}
 {{- end -}}
 
 {{- define "commit" -}}
-{{- .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- regexReplaceAll "[^A-Za-z0-9]+$" (.Chart.Version | replace "+" "_" | trunc 63) "" -}}
 {{- end -}}
 
 {{- define "branch" -}}
-{{- .Chart.Version | replace "+" "_" | replace "#" "-" | replace "/" "-" | replace "." "-" | trunc 63 | trimSuffix "-" -}}
+{{- regexReplaceAll "[^A-Za-z0-9]+$" (.Chart.Version | replace "+" "_" | replace "#" "-" | replace "/" "-" | replace "." "-" | trunc 63) "" -}}
 {{- end -}}
 
 {{/*

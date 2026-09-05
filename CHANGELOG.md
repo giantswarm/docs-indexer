@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Strip trailing separators from the `helm.sh/chart`, `application.giantswarm.io/commit` and `application.giantswarm.io/branch` labels after truncation. A label value has to end alphanumeric, but truncating `<chart name>-<version>` at 63 characters lands wherever it lands, and `trimSuffix "-"` only covers a dash while a dev chart version is full of dots. A dev build from a branch with a long name rendered `helm.sh/chart: "docs-indexer-app-4.2.7-dev.…2026-09-05."`, which the API server rejected, so the chart could not be installed at all. Whether a given branch happened to truncate onto a valid character was luck. Latent since the labels were introduced, and surfaced by the real ATS install added in #540.
 - Give the blog indexer the same leftover handling as the hugo one. An interrupted blog run left its index behind forever: the index is created before indexing starts, and only the index the alias pointed at was ever cleaned up. Blog indices that no alias points at are now deleted at the start of each run, scoped to the `blog-<timestamp>` naming scheme.
 - Delete the blog index again when a run finds no posts, instead of leaving an empty index behind that no alias points at. The previously aliased index stays in service, as before.
 - Move the blog index alias in a single atomic `POST /_aliases` call, the same fix already made for the hugo indexer.
