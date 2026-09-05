@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 import hugo
@@ -322,6 +322,20 @@ class TestCheckIndex(unittest.TestCase):
 
         self.assertEqual(indices.deleted, ["docs-abc"])
         self.assertNotIn("docs-abc", indices.indices)
+
+    def test_in_flight_index_is_left_alone(self) -> None:
+        # a concurrent run is probably still filling it; deleting it would make
+        # that run recreate it by auto-create with dynamic mappings
+        es, indices = fake_client(
+            indices=["docs-abc"],
+            created={"docs-abc": datetime.now(timezone.utc) - timedelta(minutes=2)},
+        )
+
+        with self.assertRaises(SystemExit) as cm:
+            hugo.check_index(es, "docs-abc")
+
+        self.assertIn(cm.exception.code, (None, 0))
+        self.assertEqual(indices.deleted, [])
 
     def test_unaliased_index_without_any_alias_is_deleted(self) -> None:
         es, indices = fake_client(indices=["docs-abc"])

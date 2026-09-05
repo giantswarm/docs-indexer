@@ -16,7 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Move the index alias and leftover-pruning helpers into `common.py`, shared by both indexers rather than duplicated. No behaviour change for the hugo indexer.
+- Move the index alias and leftover-pruning helpers into `common.py`, shared by both indexers rather than duplicated.
+- Leave indices younger than 15 minutes alone when pruning or replacing leftovers. An index carries no alias until the last step of a run, so "unaliased" on its own cannot tell a leftover from an index a concurrent run is still filling. Deleting an in-flight index made the run that owned it recreate the index by auto-create, with dynamic mappings and default settings, and then move the live alias onto it — search would degrade with no error anywhere. The grace outlives the CronJobs' `activeDeadlineSeconds: 600`, so no run can still be writing to an index older than it. Applies to the hugo indexer too, where a concurrent run could delete an in-flight index for the same commit SHA.
+- Do nothing, instead of failing, when the blog index name is already taken by a complete index. `create_index` raised `resource_already_exists_exception`. Reachable when a run starts in the same second as one that just finished.
+- Log and continue when deleting an empty blog index fails, rather than letting the exception fail an otherwise correct run. The next run's prune collects the index.
 
 ### Added
 

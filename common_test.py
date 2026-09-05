@@ -1,8 +1,15 @@
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
-from common import html2text, prune_incomplete_indices, switch_alias
-from fakes import fake_client
+from common import (
+    IN_FLIGHT_GRACE,
+    html2text,
+    prune_incomplete_indices,
+    switch_alias,
+)
+from fakes import FakeIndices, fake_client
+from opensearchpy import OpenSearch
 
 SHA_PATTERN = r"[0-9a-f]{40}"
 TIMESTAMP_PATTERN = r"\d{4}(?:-\d{2}){5}"
@@ -92,6 +99,41 @@ class TestPruneNamingGuard(unittest.TestCase):
         prune_incomplete_indices(es, "blog", TIMESTAMP_PATTERN, keep="blog-other")
 
         self.assertEqual(indices.deleted, ["blog-2026-08-20-08-51-12"])
+
+
+class TestPruneLeavesInFlightIndicesAlone(unittest.TestCase):
+    """
+    An index carries no alias until the last step of a run, so "unaliased" alone
+    cannot distinguish a leftover from an index a concurrent run is filling.
+    """
+
+    def setUp(self) -> None:
+        self.name = f"docs-{'a' * 40}"
+
+    def _client(self, age: timedelta) -> tuple[OpenSearch, FakeIndices]:
+        return fake_client(
+            indices=[self.name],
+            created={self.name: datetime.now(timezone.utc) - age},
+        )
+
+    def test_recently_created_index_survives(self) -> None:
+        es, indices = self._client(timedelta(minutes=2))
+
+        prune_incomplete_indices(es, "docs", SHA_PATTERN, keep="docs-other")
+
+        self.assertEqual(indices.deleted, [])
+
+    def test_index_older_than_any_possible_run_is_deleted(self) -> None:
+        es, indices = self._client(timedelta(hours=2))
+
+        prune_incomplete_indices(es, "docs", SHA_PATTERN, keep="docs-other")
+
+        self.assertEqual(indices.deleted, [self.name])
+
+    def test_grace_outlives_the_job_deadline(self) -> None:
+        # the CronJobs are capped at activeDeadlineSeconds: 600, so nothing
+        # older than the grace can still be running
+        self.assertGreater(IN_FLIGHT_GRACE, timedelta(seconds=600))
 
 
 class TestSwitchAliasIsAtomic(unittest.TestCase):

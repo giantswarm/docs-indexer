@@ -2,9 +2,11 @@
 Test doubles for the opensearchpy client, shared by the test modules.
 """
 
+from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 from opensearchpy import OpenSearch
+from opensearchpy.exceptions import NotFoundError
 
 
 class FakeIndices:
@@ -17,10 +19,15 @@ class FakeIndices:
         self,
         indices: list[str] | None = None,
         aliases: dict[str, list[str]] | None = None,
+        created: dict[str, datetime] | None = None,
     ) -> None:
         self.indices = set(indices or [])
         self.aliases = {k: list(v) for k, v in (aliases or {}).items()}
         self.deleted: list[str] = []
+        # Indices default to old enough that no run could still be filling them,
+        # which is the ordinary case; pass created to make one look in flight.
+        old = datetime.now(timezone.utc) - timedelta(days=1)
+        self.created = {i: (created or {}).get(i, old) for i in self.indices}
 
     def exists(self, index: str) -> bool:
         return index in self.indices
@@ -29,9 +36,30 @@ class FakeIndices:
         if index in self.indices:
             raise AssertionError(f"index {index} already exists")
         self.indices.add(index)
+        self.created[index] = datetime.now(timezone.utc)
+
+    def get(self, index: str, ignore_unavailable: bool = False) -> dict[str, Any]:
+        prefix = index.rstrip("*")
+        matched = [i for i in sorted(self.indices) if i.startswith(prefix)]
+        if not matched and not index.endswith("*"):
+            raise NotFoundError(404, "index_not_found_exception", index)
+        return {
+            i: {
+                "aliases": {
+                    a: {} for a, members in self.aliases.items() if i in members
+                },
+                "settings": {
+                    "index": {
+                        "creation_date": str(int(self.created[i].timestamp() * 1000))
+                    }
+                },
+            }
+            for i in matched
+        }
 
     def exists_alias(self, name: str, index: str | None = None) -> bool:
-        if name not in self.aliases:
+        # an alias whose last member was removed no longer exists
+        if not self.aliases.get(name):
             return False
         if index is None:
             return True
@@ -44,6 +72,8 @@ class FakeIndices:
         ignore_unavailable: bool = False,
     ) -> dict[str, Any]:
         if name is not None:
+            if not self.aliases.get(name):
+                raise NotFoundError(404, "aliases_not_found_exception", name)
             return {i: {"aliases": {name: {}}} for i in self.aliases[name]}
 
         # index pattern form: every matching index with the aliases it has, if any
@@ -60,6 +90,7 @@ class FakeIndices:
 
     def delete(self, index: str) -> None:
         self.indices.discard(index)
+        self.created.pop(index, None)
         self.deleted.append(index)
 
     def update_aliases(self, body: dict[str, Any]) -> None:
@@ -82,8 +113,9 @@ class FakeOpenSearch:
         self,
         indices: list[str] | None = None,
         aliases: dict[str, list[str]] | None = None,
+        created: dict[str, datetime] | None = None,
     ) -> None:
-        self.indices = FakeIndices(indices, aliases)
+        self.indices = FakeIndices(indices, aliases, created)
         self.documents: dict[str, dict[str, Any]] = {}
 
     def index(self, index: str, id: str, body: dict[str, Any]) -> None:
@@ -95,6 +127,7 @@ class FakeOpenSearch:
 def fake_client(
     indices: list[str] | None = None,
     aliases: dict[str, list[str]] | None = None,
+    created: dict[str, datetime] | None = None,
 ) -> tuple[OpenSearch, FakeIndices]:
-    fake = FakeOpenSearch(indices, aliases)
+    fake = FakeOpenSearch(indices, aliases, created)
     return cast(OpenSearch, fake), fake.indices

@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 import blog
@@ -158,36 +158,78 @@ class TestRun(unittest.TestCase):
         self.assertEqual(len(leftovers), 1)
         return leftovers[0]
 
-    def test_interrupted_run_leaves_a_leftover_the_next_run_collects(self) -> None:
+    def _age(self, index_name: str) -> None:
+        """Make an index old enough that no run could still be filling it."""
+        self.indices.created[index_name] = datetime.now(timezone.utc) - timedelta(
+            days=1
+        )
+
+    def _index_one_post(self) -> None:
+        with mock.patch.object(
+            blog, "get_blog_posts", return_value=iter([self._post("1")])
+        ):
+            blog.run()
+
+    def test_a_leftover_still_in_flight_is_left_alone(self) -> None:
+        # an overlapping run must not delete the index the first run is filling:
+        # that run would keep writing, OpenSearch would recreate it by
+        # auto-create with dynamic mappings, and it would then take the alias
         names = iter(["blog-2026-09-04-08-51-19", "blog-2026-09-05-08-51-22"])
         with mock.patch.object(blog, "full_index_name", lambda _dt: next(names)):
             leftover = self._interrupt()
+            self._index_one_post()
 
-            with mock.patch.object(
-                blog, "get_blog_posts", return_value=iter([self._post("1")])
-            ):
-                blog.run()
+        self.assertNotIn(leftover, self.indices.deleted)
+        self.assertIn(leftover, self.indices.indices)
+
+    def test_interrupted_run_leaves_a_leftover_a_later_run_collects(self) -> None:
+        names = iter(["blog-2026-09-04-08-51-19", "blog-2026-09-05-08-51-22"])
+        with mock.patch.object(blog, "full_index_name", lambda _dt: next(names)):
+            leftover = self._interrupt()
+            self._age(leftover)
+            self._index_one_post()
 
         self.assertIn(leftover, self.indices.deleted)
         self.assertEqual(len(self.indices.aliases["blog"]), 1)
         self.assertEqual(set(self.indices.indices), set(self.indices.aliases["blog"]))
 
-    def test_leftover_under_the_same_name_is_replaced(self) -> None:
+    def test_leftover_under_the_same_name_is_replaced_once_it_is_old(self) -> None:
         # two runs in the same second produce the same index name, which pruning
         # spares because it is the name the second run is about to use
         with mock.patch.object(
             blog, "full_index_name", lambda _dt: "blog-2026-09-04-08-51-19"
         ):
             leftover = self._interrupt()
-
-            with mock.patch.object(
-                blog, "get_blog_posts", return_value=iter([self._post("1")])
-            ):
-                blog.run()
+            self._age(leftover)
+            self._index_one_post()
 
         self.assertIn(leftover, self.indices.deleted)
         self.assertEqual(self.indices.aliases["blog"], ["blog-2026-09-04-08-51-19"])
         self.assertEqual(set(self.indices.indices), {"blog-2026-09-04-08-51-19"})
+
+    def test_same_name_index_still_in_flight_is_left_alone(self) -> None:
+        with mock.patch.object(
+            blog, "full_index_name", lambda _dt: "blog-2026-09-04-08-51-19"
+        ):
+            leftover = self._interrupt()
+            self._index_one_post()
+
+        self.assertNotIn(leftover, self.indices.deleted)
+        self.assertEqual(self.indices.aliases["blog"], [self.live])
+
+    def test_complete_index_under_the_same_name_is_not_recreated(self) -> None:
+        # a run that finished in this same second already holds the alias;
+        # create_index would raise resource_already_exists_exception
+        with mock.patch.object(
+            blog, "full_index_name", lambda _dt: "blog-2026-09-04-08-51-19"
+        ):
+            self._index_one_post()
+            live = self.indices.aliases["blog"][:]
+
+            self._index_one_post()
+
+        self.assertEqual(self.indices.aliases["blog"], live)
+        self.assertEqual(live, ["blog-2026-09-04-08-51-19"])
 
 
 if __name__ == "__main__":

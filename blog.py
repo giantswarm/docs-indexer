@@ -21,6 +21,7 @@ from opensearchpy import OpenSearch
 
 from common import html2text
 from common import index_is_complete
+from common import index_may_be_in_flight
 from common import index_settings
 from common import prune_incomplete_indices as _prune_incomplete_indices
 from common import switch_alias
@@ -181,12 +182,22 @@ def run() -> None:
     # be created is kept, so this cannot collect the one this run is filling.
     prune_incomplete_indices(es, keep=index_name)
 
-    # An index already under this name is a leftover of an earlier run in the
-    # same second, which pruning spares because it is the name we are about to
-    # use. Only replace it while no alias points at it.
-    if es.indices.exists(index=index_name) and not index_is_complete(
-        es, INDEX_NAME_PREFIX, index_name
-    ):
+    # An index already under this name comes from an earlier run in the same
+    # second, which pruning spares because it is the name we are about to use.
+    if es.indices.exists(index=index_name):
+        if index_is_complete(es, INDEX_NAME_PREFIX, index_name):
+            logging.info(
+                f"Index {index_name} already exists and is complete, nothing to do."
+            )
+            return
+
+        if index_may_be_in_flight(es, index_name):
+            logging.info(
+                f"Index {index_name} was created recently, so another run is "
+                "probably still filling it. Leaving it alone."
+            )
+            return
+
         logging.warning(
             f"Deleting incomplete index {index_name} left by an earlier run"
         )
@@ -212,6 +223,11 @@ def run() -> None:
         # Leaving the index would keep an empty one around that no alias points
         # at, and the previous index stays in service.
         logging.info(f"No blog posts found, deleting empty index {index_name}")
-        es.indices.delete(index=index_name)
+        try:
+            es.indices.delete(index=index_name)
+        except Exception:
+            # The run behaved correctly, so it should not be reported as failed.
+            # The next run's prune collects the index.
+            logging.error(f"Could not delete index {index_name}")
 
     logging.info("Done")

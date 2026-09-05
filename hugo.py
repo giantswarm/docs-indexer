@@ -22,6 +22,7 @@ except ImportError:
 
 from common import html2text
 from common import index_is_complete as _index_is_complete
+from common import index_may_be_in_flight
 from common import index_settings
 from common import prune_incomplete_indices as _prune_incomplete_indices
 from common import switch_alias as _switch_alias
@@ -440,6 +441,13 @@ def check_index(es: OpenSearch, index_name: str) -> None:
 
     if index_is_complete(es, index_name):
         logging.info(f"Index {index_name} already exists and is complete.")
+        sys.exit()
+
+    if index_may_be_in_flight(es, index_name):
+        logging.info(
+            f"Index {index_name} was created recently, so another run is "
+            "probably still filling it. Leaving it alone."
+        )
         sys.exit()
 
     logging.warning(
