@@ -1,4 +1,5 @@
 ---
-# Minimal Helm values for the app-test-suite build-chart step. The cluster
-# smoke is skipped (see .ats/main.yaml), so this only needs to let the chart
-# render and lint -- no per-deployment overrides are required.
+# Helm values for the app-test-suite install of execute-chart-tests
+# (.ats/main.yaml). The chart's defaults install as they are: the CronJobs are
+# created but never run on the kind cluster, so the dummy credentials and the
+# unreachable search endpoint do not matter.

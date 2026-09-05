@@ -1,0 +1,7 @@
+# The chart's PolicyException hooks live in the platform's `policy-exceptions`
+# namespace, which kyverno-policy-operator's chart creates on a real cluster.
+# The ATS kind cluster has neither, so the namespace goes on with the CRD.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: policy-exceptions
