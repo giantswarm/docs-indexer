@@ -1,0 +1,49 @@
+suite: common labels are valid Kubernetes label values
+templates:
+  - pss.yaml
+  - cronjob-docs.yaml
+tests:
+  - it: keeps a released version intact
+    chart:
+      version: 4.2.1
+    asserts:
+      - matchRegex:
+          path: metadata.labels["helm.sh/chart"]
+          pattern: ^docs-indexer-app-4\.2\.1$
+
+  # A dev build stamps branch, date, time and hash into the version, which puts
+  # "<chart name>-<version>" well past the 63 character label limit. Truncating
+  # there used to land on a "." and Kubernetes rejected the whole object, so the
+  # chart could not be installed from a branch with a long name.
+  - it: leaves no trailing separator when a long dev version is truncated
+    chart:
+      version: 4.2.7-dev.fix-blog-in--ned-indices.2026-09-05.10-11-42.hc2a31f1
+    asserts:
+      - matchRegex:
+          path: metadata.labels["helm.sh/chart"]
+          pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$
+      - matchRegex:
+          path: metadata.labels["helm.sh/chart"]
+          pattern: ^.{1,63}$
+      - matchRegex:
+          path: metadata.labels["application.giantswarm.io/commit"]
+          pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$
+      - matchRegex:
+          path: metadata.labels["application.giantswarm.io/branch"]
+          pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$
+
+  - it: leaves no trailing separator when truncation lands on a dash
+    chart:
+      version: 4.2.7-dev.a-branch-name-long-enough-to-truncate.2026-09-05-10-11
+    asserts:
+      - matchRegex:
+          path: metadata.labels["helm.sh/chart"]
+          pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$
+
+  - it: leaves no trailing separator when a build metadata version is truncated
+    chart:
+      version: 4.2.7+dev.this.is.a.long.build.metadata.suffix.that.needs.trimming
+    asserts:
+      - matchRegex:
+          path: metadata.labels["helm.sh/chart"]
+          pattern: ^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$

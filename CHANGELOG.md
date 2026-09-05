@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Strip trailing separators from the `helm.sh/chart`, `application.giantswarm.io/commit` and `application.giantswarm.io/branch` labels after truncation. A label value has to end alphanumeric, but truncating `<chart name>-<version>` at 63 characters lands wherever it lands, and `trimSuffix "-"` only covers a dash while a dev chart version is full of dots. A dev build from a branch with a long name rendered `helm.sh/chart: "docs-indexer-app-4.2.7-dev.…2026-09-05."`, which the API server rejected, so the chart could not be installed at all. Whether a given branch happened to truncate onto a valid character was luck. Latent since the labels were introduced, and surfaced by the real ATS install added in #540.
+
 ### Added
 
 - Add `architecture` value (`""` | `amd64` | `arm64`) to pin the indexer CronJobs to a CPU architecture, plus `nodeSelector` and `tolerations` passthrough values (the job pod specs previously had no scheduling fields). Setting `arm64` renders both the `kubernetes.io/arch` node selector and the toleration for the `kubernetes.io/arch=arm64:NoSchedule` taint that Giant Swarm arm64 node pools carry; both are required, so one value drives both. Applies to all four CronJobs (docs, blog, handbook, intranet). Defaults to `""`, which renders nothing, so output is unchanged for existing users.
