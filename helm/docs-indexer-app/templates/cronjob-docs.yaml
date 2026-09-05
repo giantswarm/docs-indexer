@@ -17,10 +17,6 @@ spec:
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
-  securityContext:
-    seccompProfile:
-      type: RuntimeDefault
-
   # Job template spec
   jobTemplate:
 
@@ -41,6 +37,10 @@ spec:
 
         # Pod spec
         spec:
+          # Pod-level seccomp profile; container-level fields stay on the container.
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: {{ .Values.image.name }}
               args: ["hugo"]
