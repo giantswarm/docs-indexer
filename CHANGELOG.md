@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Strip trailing separators from the `helm.sh/chart`, `application.giantswarm.io/commit` and `application.giantswarm.io/branch` labels after truncation. A label value has to end alphanumeric, but truncating `<chart name>-<version>` at 63 characters lands wherever it lands, and `trimSuffix "-"` only covers a dash while a dev chart version is full of dots. A dev build from a branch with a long name rendered `helm.sh/chart: "docs-indexer-app-4.2.7-dev.…2026-09-05."`, which the API server rejected, so the chart could not be installed at all. Whether a given branch happened to truncate onto a valid character was luck. Latent since the labels were introduced, and surfaced by the real ATS install added in #540.
+- Give the blog indexer the same leftover handling as the hugo one. An interrupted blog run left its index behind forever: the index is created before indexing starts, and only the index the alias pointed at was ever cleaned up. Blog indices that no alias points at are now deleted at the start of each run, scoped to the `blog-<timestamp>` naming scheme.
+- Delete the blog index again when a run finds no posts, instead of leaving an empty index behind that no alias points at. The previously aliased index stays in service, as before.
+- Move the blog index alias in a single atomic `POST /_aliases` call, the same fix already made for the hugo indexer.
+- Replace a blog index left behind by an interrupted run in the same second, which pruning spares because it is the name the new run is about to use. `create_index` used to fail with `resource_already_exists_exception` in that case. Only reachable when two runs start within one second, so not something the daily schedule hits.
+
+### Changed
+
+- Move the index alias and leftover-pruning helpers into `common.py`, shared by both indexers rather than duplicated.
+- Leave indices younger than 15 minutes alone when pruning or replacing leftovers. An index carries no alias until the last step of a run, so "unaliased" on its own cannot tell a leftover from an index a concurrent run is still filling. Deleting an in-flight index made the run that owned it recreate the index by auto-create, with dynamic mappings and default settings, and then move the live alias onto it — search would degrade with no error anywhere. The grace outlives the CronJobs' `activeDeadlineSeconds: 600`, so no run can still be writing to an index older than it. Applies to the hugo indexer too, where a concurrent run could delete an in-flight index for the same commit SHA.
+- Do nothing, instead of failing, when the blog index name is already taken by a complete index. `create_index` raised `resource_already_exists_exception`. Reachable when a run starts in the same second as one that just finished.
+- Log and continue when deleting an empty blog index fails, rather than letting the exception fail an otherwise correct run. The next run's prune collects the index.
 
 ### Added
 

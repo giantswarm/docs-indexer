@@ -21,7 +21,11 @@ except ImportError:
     from yaml import Loader
 
 from common import html2text
+from common import index_is_complete as _index_is_complete
+from common import index_may_be_in_flight
 from common import index_settings
+from common import prune_incomplete_indices as _prune_incomplete_indices
+from common import switch_alias as _switch_alias
 
 OPENSEARCH_ENDPOINT = os.getenv("OPENSEARCH_ENDPOINT")
 REPOSITORY_BRANCH = os.getenv("REPOSITORY_BRANCH", "main")
@@ -424,12 +428,7 @@ def collect_properties_text(schema_dict: dict[str, Any]) -> list[str]:
 
 
 def index_is_complete(es: OpenSearch, index_name: str) -> bool:
-    """
-    Report whether the index is complete. The alias is moved as the very last
-    step of a run, so an index that no alias points at is one an unfinished run
-    left behind, however many documents it holds.
-    """
-    return bool(es.indices.exists_alias(name=INDEX_NAME, index=index_name))
+    return _index_is_complete(es, str(INDEX_NAME), index_name)
 
 
 def check_index(es: OpenSearch, index_name: str) -> None:
@@ -442,6 +441,13 @@ def check_index(es: OpenSearch, index_name: str) -> None:
 
     if index_is_complete(es, index_name):
         logging.info(f"Index {index_name} already exists and is complete.")
+        sys.exit()
+
+    if index_may_be_in_flight(es, index_name):
+        logging.info(
+            f"Index {index_name} was created recently, so another run is "
+            "probably still filling it. Leaving it alone."
+        )
         sys.exit()
 
     logging.warning(
@@ -458,57 +464,16 @@ def ensure_index(es: OpenSearch, index_name: str) -> None:
     )
 
 
-def is_own_index(index_name: str) -> bool:
-    """
-    Report whether the index follows this indexer's naming scheme, the alias name
-    plus a commit SHA. Scopes deletion to indices this indexer created.
-    """
-    pattern = rf"{re.escape(str(INDEX_NAME))}-[0-9a-f]{{40}}"
-    return re.fullmatch(pattern, index_name) is not None
+# Indices this indexer creates are named after the alias plus the commit SHA.
+INDEX_SUFFIX_PATTERN = r"[0-9a-f]{40}"
 
 
 def prune_incomplete_indices(es: OpenSearch, keep: str) -> None:
-    """
-    Delete this indexer's indices that no alias points at, except keep. Each one
-    is a leftover of a run that never reached the alias switch.
-    """
-    indices = es.indices.get_alias(index=f"{INDEX_NAME}-*", ignore_unavailable=True)
-
-    for name, entry in indices.items():
-        if name == keep or entry.get("aliases") or not is_own_index(name):
-            continue
-
-        logging.warning(f"Deleting incomplete index {name} left by an earlier run")
-        try:
-            es.indices.delete(index=name)
-        except Exception:
-            logging.error(f"Could not delete index {name}")
+    _prune_incomplete_indices(es, str(INDEX_NAME), INDEX_SUFFIX_PATTERN, keep)
 
 
 def switch_alias(es: OpenSearch, index_name: str) -> None:
-    """
-    Move the INDEX_NAME alias to index_name in one atomic step, then delete the
-    indices it pointed at before. Removing and adding separately would leave the
-    alias missing entirely if the run is killed in between.
-    """
-    previous: list[str] = []
-    if es.indices.exists_alias(name=INDEX_NAME):
-        previous = [i for i in es.indices.get_alias(name=INDEX_NAME) if i != index_name]
-
-    actions: list[dict[str, Any]] = [
-        {"remove": {"index": i, "alias": INDEX_NAME}} for i in previous
-    ]
-    actions.append({"add": {"index": index_name, "alias": INDEX_NAME}})
-
-    logging.info(f"Moving alias {INDEX_NAME} to index {index_name}")
-    es.indices.update_aliases(body={"actions": actions})
-
-    for old_index in previous:
-        logging.info(f"Deleting previous index {old_index}")
-        try:
-            es.indices.delete(index=old_index)
-        except Exception:
-            logging.error(f"Could not delete index {old_index}")
+    _switch_alias(es, str(INDEX_NAME), index_name)
 
 
 def run() -> None:
