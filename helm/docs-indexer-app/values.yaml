@@ -10,9 +10,15 @@ resources:
   requests:
     cpu: 100m
     memory: 80M
+    # -- Ephemeral storage request. The `docs-cache` `emptyDir` holds a full git
+    # clone of the indexed repository, so this has to cover the largest one.
+    ephemeralStorage: 512Mi
   limits:
     cpu: 200m
     memory: 200M
+    # -- Ephemeral storage limit. Exceeding it evicts the pod mid-run, so this
+    # leaves room for the indexed repositories to grow.
+    ephemeralStorage: 2Gi
 
 credentials:
   githubAccessToken: DUMMYTOKEN
