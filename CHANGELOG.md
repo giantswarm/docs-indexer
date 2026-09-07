@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `ephemeral-storage` requests and limits to the indexer CronJobs, defaulting to `512Mi` and `2Gi` and overridable via `resources.requests.ephemeralStorage` / `resources.limits.ephemeralStorage`. The `docs-cache` `emptyDir` held a full git clone with no ephemeral-storage declared, so every run raised a `require-emptydir-requests-and-limits` PolicyViolation. The policy is `validationFailureAction: Audit`, so nothing was blocked, but the pods were also unbounded: exceeding the node's ephemeral storage evicts a pod mid-run. Sized from the clones the jobs actually make — `giantswarm/docs` measures 100 MiB on disk and `giantswarm/giantswarm`, the largest, around 360 MiB — so the limit leaves room to grow. Closes the same gap `sitesearch` closed in its 3.0.x line.
+
 ### Fixed
 
 - Strip trailing separators from the `helm.sh/chart`, `application.giantswarm.io/commit` and `application.giantswarm.io/branch` labels after truncation. A label value has to end alphanumeric, but truncating `<chart name>-<version>` at 63 characters lands wherever it lands, and `trimSuffix "-"` only covers a dash while a dev chart version is full of dots. A dev build from a branch with a long name rendered `helm.sh/chart: "docs-indexer-app-4.2.7-dev.…2026-09-05."`, which the API server rejected, so the chart could not be installed at all. Whether a given branch happened to truncate onto a valid character was luck. Latent since the labels were introduced, and surfaced by the real ATS install added in #540.

@@ -1,0 +1,46 @@
+# The require-emptydir-requests-and-limits Kyverno policy asks every container
+# that mounts an emptyDir to declare ephemeral-storage requests and limits.
+# The docs-cache emptyDir holds a full git clone of the indexed repository.
+suite: ephemeral-storage requests and limits
+templates:
+  - cronjob-docs.yaml
+  - cronjob-handbook.yaml
+  - cronjob-intranet.yaml
+  - cronjob-blog.yaml
+tests:
+  - it: declares both by default, so the chart is compliant out of the box
+    asserts:
+      - isNotEmpty:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.requests["ephemeral-storage"]
+      - isNotEmpty:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.limits["ephemeral-storage"]
+
+  - it: uses defaults sized for the largest indexed repository
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.requests["ephemeral-storage"]
+          value: 512Mi
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.limits["ephemeral-storage"]
+          value: 2Gi
+
+  - it: is overridable
+    set:
+      resources.requests.ephemeralStorage: 1Gi
+      resources.limits.ephemeralStorage: 4Gi
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.requests["ephemeral-storage"]
+          value: 1Gi
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.limits["ephemeral-storage"]
+          value: 4Gi
+
+  - it: keeps cpu and memory untouched
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.requests.cpu
+          value: 100m
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].resources.limits.memory
+          value: 200M
