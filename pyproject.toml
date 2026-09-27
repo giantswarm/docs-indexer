@@ -14,7 +14,7 @@ dependencies = [
     "Markdown==3.10.3",
     "prance==26.7.19.0",
     "requests==2.34.2",
-    "semver==3.0.4",
+    "semver==3.1.0",
     "six==1.17.0",
     "soupsieve==2.9.2",
     "urllib3==2.7.0",
