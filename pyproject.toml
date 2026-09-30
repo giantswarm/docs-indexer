@@ -17,7 +17,7 @@ dependencies = [
     "semver==3.1.0",
     "six==1.17.0",
     "soupsieve==2.9.2",
-    "urllib3==2.7.0",
+    "urllib3==2.8.0",
     "PyYAML==6.0.3",
 ]
 
