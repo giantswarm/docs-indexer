@@ -197,19 +197,25 @@ class TestCollectPropertiesText(unittest.TestCase):
 
 
 class TestGetLastModified(unittest.TestCase):
+    # The test repos must not inherit the caller's git config: a global
+    # commit.gpgsign=true without a signer would fail every commit.
+    GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp()
         self._git("init", "-q", "-b", "main")
         self._git("config", "user.email", "indexer@example.com")
         self._git("config", "user.name", "Indexer")
+        self._git("config", "commit.gpgsign", "false")
 
     def tearDown(self) -> None:
         shutil.rmtree(self.root, ignore_errors=True)
 
-    def _git(self, *args: str) -> None:
+    def _git(self, *args: str, env: dict[str, str] | None = None) -> None:
         subprocess.run(
             ["git", "-C", self.root, *args],
             check=True,
+            env={**os.environ, **self.GIT_ENV, **(env or {})},
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -222,16 +228,12 @@ class TestGetLastModified(unittest.TestCase):
             with open(path, "a") as f:
                 f.write("content\n")
         self._git("add", "-A")
-        subprocess.run(
-            ["git", "-C", self.root, "commit", "-q", "-m", f"commit {date}"],
-            check=True,
-            env={
-                **os.environ,
-                "GIT_AUTHOR_DATE": date,
-                "GIT_COMMITTER_DATE": date,
-            },
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        self._git(
+            "commit",
+            "-q",
+            "-m",
+            f"commit {date}",
+            env={"GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date},
         )
 
     @staticmethod
@@ -272,18 +274,7 @@ class TestGetLastModified(unittest.TestCase):
         self._commit("2026-02-02T00:00:00+00:00", "side.md")
         self._git("checkout", "-q", "main")
         self._commit("2026-03-03T00:00:00+00:00", "main.md")
-        self._git(
-            "-c",
-            "user.email=indexer@example.com",
-            "-c",
-            "user.name=Indexer",
-            "merge",
-            "-q",
-            "--no-ff",
-            "-m",
-            "merge side",
-            "side",
-        )
+        self._git("merge", "-q", "--no-ff", "-m", "merge side", "side")
 
         last_modified = get_last_modified(self.root)
 
