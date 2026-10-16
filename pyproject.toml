@@ -3,7 +3,7 @@ name = "docs-indexer"
 version = "0.1.0"
 description = "Search content indexer for Giant Swarm's search engines"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
     "beautifulsoup4==4.15.0",
     "certifi==2026.7.22",

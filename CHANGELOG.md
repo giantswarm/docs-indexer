@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Run on Python 3.15: the image is based on `python:3.15-alpine3.23` (no `alpine3.22` variant exists for 3.15), the unit tests run on `cimg/python:3.15`, and `requires-python` is `>=3.15`. `grpcio` (pulled in by `opensearch-py`) moves from 1.76.0 to 1.84.0, the first release with `cp315` wheels; 1.76.0 had to be compiled from source on 3.15, which the CI job did not survive.
+
 ### Added
 
 - Add `ephemeral-storage` requests and limits to the indexer CronJobs, defaulting to `512Mi` and `2Gi` and overridable via `resources.requests.ephemeralStorage` / `resources.limits.ephemeralStorage`. The `docs-cache` `emptyDir` held a full git clone with no ephemeral-storage declared, so every run raised a `require-emptydir-requests-and-limits` PolicyViolation. The policy is `validationFailureAction: Audit`, so nothing was blocked, but the pods were also unbounded: exceeding the node's ephemeral storage evicts a pod mid-run. Sized from the clones the jobs actually make — `giantswarm/docs` measures 100 MiB on disk and `giantswarm/giantswarm`, the largest, around 360 MiB — so the limit leaves room to grow. Closes the same gap `sitesearch` closed in its 3.0.x line.
