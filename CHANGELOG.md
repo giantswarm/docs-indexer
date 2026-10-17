@@ -7,21 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.19-rc.7] - 2026-10-16
+
 ### Changed
 
 - Run on Python 3.15: the image is based on `python:3.15-alpine3.23` (no `alpine3.22` variant exists for 3.15), the unit tests run on `cimg/python:3.15`, and `requires-python` is `>=3.15`. `grpcio` (pulled in by `opensearch-py`) moves from 1.76.0 to 1.84.0, the first release with `cp315` wheels; 1.76.0 had to be compiled from source on 3.15, which the CI job did not survive.
+
+## [4.3.0] - 2026-09-07
 
 ### Added
 
 - Add `ephemeral-storage` requests and limits to the indexer CronJobs, defaulting to `512Mi` and `2Gi` and overridable via `resources.requests.ephemeralStorage` / `resources.limits.ephemeralStorage`. The `docs-cache` `emptyDir` held a full git clone with no ephemeral-storage declared, so every run raised a `require-emptydir-requests-and-limits` PolicyViolation. The policy is `validationFailureAction: Audit`, so nothing was blocked, but the pods were also unbounded: exceeding the node's ephemeral storage evicts a pod mid-run. Sized from the clones the jobs actually make — `giantswarm/docs` measures 100 MiB on disk and `giantswarm/giantswarm`, the largest, around 360 MiB — so the limit leaves room to grow. Closes the same gap `sitesearch` closed in its 3.0.x line.
 
-### Fixed
-
-- Strip trailing separators from the `helm.sh/chart`, `application.giantswarm.io/commit` and `application.giantswarm.io/branch` labels after truncation. A label value has to end alphanumeric, but truncating `<chart name>-<version>` at 63 characters lands wherever it lands, and `trimSuffix "-"` only covers a dash while a dev chart version is full of dots. A dev build from a branch with a long name rendered `helm.sh/chart: "docs-indexer-app-4.2.7-dev.…2026-09-05."`, which the API server rejected, so the chart could not be installed at all. Whether a given branch happened to truncate onto a valid character was luck. Latent since the labels were introduced, and surfaced by the real ATS install added in #540.
-- Give the blog indexer the same leftover handling as the hugo one. An interrupted blog run left its index behind forever: the index is created before indexing starts, and only the index the alias pointed at was ever cleaned up. Blog indices that no alias points at are now deleted at the start of each run, scoped to the `blog-<timestamp>` naming scheme.
-- Delete the blog index again when a run finds no posts, instead of leaving an empty index behind that no alias points at. The previously aliased index stays in service, as before.
-- Move the blog index alias in a single atomic `POST /_aliases` call, the same fix already made for the hugo indexer.
-- Replace a blog index left behind by an interrupted run in the same second, which pruning spares because it is the name the new run is about to use. `create_index` used to fail with `resource_already_exists_exception` in that case. Only reachable when two runs start within one second, so not something the daily schedule hits.
+## [4.2.9] - 2026-09-06
 
 ### Changed
 
@@ -30,10 +28,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Do nothing, instead of failing, when the blog index name is already taken by a complete index. `create_index` raised `resource_already_exists_exception`. Reachable when a run starts in the same second as one that just finished.
 - Log and continue when deleting an empty blog index fails, rather than letting the exception fail an otherwise correct run. The next run's prune collects the index.
 
-### Added
+### Fixed
 
-- Add `architecture` value (`""` | `amd64` | `arm64`) to pin the indexer CronJobs to a CPU architecture, plus `nodeSelector` and `tolerations` passthrough values (the job pod specs previously had no scheduling fields). Setting `arm64` renders both the `kubernetes.io/arch` node selector and the toleration for the `kubernetes.io/arch=arm64:NoSchedule` taint that Giant Swarm arm64 node pools carry; both are required, so one value drives both. Applies to all four CronJobs (docs, blog, handbook, intranet). Defaults to `""`, which renders nothing, so output is unchanged for existing users.
-- Add a `helm-unittest` suite for the `docs-indexer-app.podScheduling` helper (13 cases), run with `make helm-unittest`. Local only for now, since chart unit tests belong in the generated workflow set rather than a hand-written per-repo workflow.
+- Give the blog indexer the same leftover handling as the hugo one. An interrupted blog run left its index behind forever: the index is created before indexing starts, and only the index the alias pointed at was ever cleaned up. Blog indices that no alias points at are now deleted at the start of each run, scoped to the `blog-<timestamp>` naming scheme.
+- Delete the blog index again when a run finds no posts, instead of leaving an empty index behind that no alias points at. The previously aliased index stays in service, as before.
+- Move the blog index alias in a single atomic `POST /_aliases` call, the same fix already made for the hugo indexer.
+- Replace a blog index left behind by an interrupted run in the same second, which pruning spares because it is the name the new run is about to use. `create_index` used to fail with `resource_already_exists_exception` in that case. Only reachable when two runs start within one second, so not something the daily schedule hits.
+
+## [4.2.7] - 2026-09-05
+
+### Fixed
+
+- Strip trailing separators from the `helm.sh/chart`, `application.giantswarm.io/commit` and `application.giantswarm.io/branch` labels after truncation. A label value has to end alphanumeric, but truncating `<chart name>-<version>` at 63 characters lands wherever it lands, and `trimSuffix "-"` only covers a dash while a dev chart version is full of dots. A dev build from a branch with a long name rendered `helm.sh/chart: "docs-indexer-app-4.2.7-dev.…2026-09-05."`, which the API server rejected, so the chart could not be installed at all. Whether a given branch happened to truncate onto a valid character was luck. Latent since the labels were introduced, and surfaced by the real ATS install added in #540.
+
+## [4.2.1] - 2026-09-04
+
+### Removed
+
+- Remove the `GitPython` dependency, no longer used now that the git history is read with `git log` directly.
 
 ### Fixed
 
@@ -42,9 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Determine each Markdown file's last modification date in one walk of the git history, instead of one history walk per file. The per-file walk was what exhausted the CronJob's 600s deadline: on `giantswarm/docs` (6630 Markdown files, 4379 commits) it takes 171s locally and roughly 595s on a cluster node, leaving no time to index. The single walk takes 0.28s for the same repo, and returns identical dates for all 6630 files.
 - Delete this indexer's indices that no alias points at, at the start of every run. Leftovers of runs that never reached the alias switch used to accumulate indefinitely, since only the index the alias pointed at was ever cleaned up. Deletion is scoped to indices named after the alias plus a 40-character commit SHA, so indices created by anything else are left alone.
 
-### Removed
+## [4.2.0] - 2026-09-04
 
-- Remove the `GitPython` dependency, no longer used now that the git history is read with `git log` directly.
+### Added
+
+- Add `architecture` value (`""` | `amd64` | `arm64`) to pin the indexer CronJobs to a CPU architecture, plus `nodeSelector` and `tolerations` passthrough values (the job pod specs previously had no scheduling fields). Setting `arm64` renders both the `kubernetes.io/arch` node selector and the toleration for the `kubernetes.io/arch=arm64:NoSchedule` taint that Giant Swarm arm64 node pools carry; both are required, so one value drives both. Applies to all four CronJobs (docs, blog, handbook, intranet). Defaults to `""`, which renders nothing, so output is unchanged for existing users.
+- Add a `helm-unittest` suite for the `docs-indexer-app.podScheduling` helper (13 cases), run with `make helm-unittest`. Local only for now, since chart unit tests belong in the generated workflow set rather than a hand-written per-repo workflow.
 
 ## [4.1.3] - 2026-06-09
 
@@ -190,7 +205,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First release adhering to [how-to-release-a-project](https://intranet.giantswarm.io/docs/dev-and-releng/releases/how-to-release-a-project/)
 
 
-[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v4.1.3...HEAD
+[Unreleased]: https://github.com/giantswarm/docs-indexer/compare/v4.3.19-rc.7...HEAD
+[4.3.19-rc.7]: https://github.com/giantswarm/docs-indexer/compare/v4.3.0...v4.3.19-rc.7
+[4.3.0]: https://github.com/giantswarm/docs-indexer/compare/v4.2.9...v4.3.0
+[4.2.9]: https://github.com/giantswarm/docs-indexer/compare/v4.2.7...v4.2.9
+[4.2.7]: https://github.com/giantswarm/docs-indexer/compare/v4.2.1...v4.2.7
+[4.2.1]: https://github.com/giantswarm/docs-indexer/compare/v4.2.0...v4.2.1
+[4.2.0]: https://github.com/giantswarm/docs-indexer/compare/v4.1.3...v4.2.0
 [4.1.3]: https://github.com/giantswarm/docs-indexer/compare/v4.1.2...v4.1.3
 [4.1.2]: https://github.com/giantswarm/docs-indexer/compare/v4.1.1...v4.1.2
 [4.1.1]: https://github.com/giantswarm/docs-indexer/compare/v4.1.0...v4.1.1
