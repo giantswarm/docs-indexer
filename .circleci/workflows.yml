@@ -5,7 +5,7 @@
 # workflow in .circleci/config.yml merges into this file at pipeline runtime.
 version: 2.1
 orbs:
-  architect: giantswarm/architect@10.15.1
+  architect: giantswarm/architect@10.16.7
 
 commands:
   # Pre-steps of the chart-test jobs: pull the images run-tests-with-ats starts
@@ -73,6 +73,16 @@ commands:
 workflows:
   build:
     jobs:
+    # Resolve the version once, at the start of the workflow, and persist it to
+    # the workspace (.pipeline_version). Every image and chart job requires
+    # this job and builds with that version instead of resolving its own, so a
+    # stable tag landing while the workflow runs (a promote) cannot give the
+    # image and the chart that references it different versions.
+    - architect/pin-version:
+        name: pin-version
+        filters:
+          tags:
+            only: /^v.*/
 
     # Native per-architecture image build (opt-in): one architect/build-image
     # job per platform, each on a resource class of that architecture, so no
@@ -92,6 +102,8 @@ workflows:
         platform: linux/amd64
         resource_class: small
         push: false
+        requires:
+        - pin-version
         filters:
           branches:
             ignore:
@@ -103,6 +115,8 @@ workflows:
         platform: linux/arm64
         resource_class: arm.medium
         push: false
+        requires:
+        - pin-version
         filters:
           branches:
             ignore:
@@ -123,6 +137,8 @@ workflows:
         platform: linux/amd64
         resource_class: small
         split-china-push: true
+        requires:
+        - pin-version
         filters:
           tags:
             only: /^v.*/
@@ -134,6 +150,8 @@ workflows:
         platform: linux/arm64
         resource_class: arm.medium
         split-china-push: true
+        requires:
+        - pin-version
         filters:
           tags:
             only: /^v.*/
@@ -147,6 +165,7 @@ workflows:
         platforms: "linux/amd64,linux/arm64"
         split-china-push: true
         requires:
+        - pin-version
         - build-image-release-amd64
         - build-image-release-arm64
         filters:
@@ -182,6 +201,9 @@ workflows:
         push_to_appcatalog: false
         push_to_oci_registry: false
         persist_chart_archive: true
+        # The version pin-version persisted (every chart job attaches the
+        # workspace for it).
+        attach_workspace: true
         # app-build-suite fails a chart whose gsoci image references the registry
         # does not carry. build-chart runs before this pipeline pushes its own
         # image (a branch without branchPublish never pushes it), so that image
@@ -193,6 +215,8 @@ workflows:
         - run:
             name: Exempt this pipeline's own image from the image reference check
             command: echo 'export ABS_HELM_IMAGE_REFERENCE_VALIDATOR_OWN_IMAGE=gsoci.azurecr.io/giantswarm/docs-indexer' >> "$BASH_ENV"
+        requires:
+        - pin-version
         filters:
           tags:
             only: /^v.*/
@@ -248,7 +272,9 @@ workflows:
         app_catalog: giantswarm-operations-platform-catalog
         app_catalog_test: giantswarm-operations-platform-test-catalog
         chart: docs-indexer-app
+        attach_workspace: true
         requires:
+        - pin-version
         - build-chart
         - push-to-registries-release
         filters:
