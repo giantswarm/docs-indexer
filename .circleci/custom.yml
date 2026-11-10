@@ -5,7 +5,7 @@
 # unit tests this repo ships. This re-adds the build-and-test job (the same one
 # the previous hand-written config ran) so the tests keep gating every PR.
 orbs:
-  python: circleci/python@4.0.0
+  python: circleci/python@4.0.1
 
 jobs:
   build-and-test:
