@@ -28,7 +28,7 @@ index_settings = {
                 "edge_ngram_index": {
                     "type": "custom",
                     "tokenizer": "standard",
-                    "filter": ["lowercase", "edge_ngram_2_15"],
+                    "filter": ["lowercase", "edge_ngram_3_15"],
                 },
             },
             "filter": {
@@ -38,11 +38,14 @@ index_settings = {
                     "min_shingle_size": 2,
                     "max_shingle_size": 3,
                 },
-                # 'edge_ngram_2_15' filter needed by 'edge_ngram_index' analyzer.
-                "edge_ngram_2_15": {
+                # 'edge_ngram_3_15' filter needed by 'edge_ngram_index' analyzer.
+                # preserve_original keeps the whole token so a word longer than
+                # max_gram still matches exactly on the prefix field.
+                "edge_ngram_3_15": {
                     "type": "edge_ngram",
-                    "min_gram": 2,
+                    "min_gram": 3,
                     "max_gram": 15,
+                    "preserve_original": True,
                 },
             },
         },
