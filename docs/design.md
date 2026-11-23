@@ -18,6 +18,8 @@ If the index is seen to be up-to-date with the source, nothing else is done and 
 
 If the index does not yet exist, or if the index state differs from the source state, a new index is created using the naming convention described above, and all source documents are indexed into that new index.
 
+A change to the index settings or to a mapping does not make an index out of date, because neither takes part in the state string. An existing, complete index stays as it is, so `docs`, `handbook` and `intranet` keep their current schema until the next commit to their source repository. The `blog` index picks a new schema up as soon as an article changes. To apply a schema change at once, delete the index the alias points at. The next run finds no index for the current state and builds it again with the new schema. Note that the alias is deleted along with the index, so that source is missing from search results until the run finishes.
+
 Finally, once writing to the new index is finished, an index alias will be created. For example, for the index named `docs-0e45d8fc...` an alias `docs` is created. If an alias with the same name existed before (which should be the normal case), the alias is replaced with one pointing to the new index. Outdated indexes (those without an alias) are finally deleted.
 
 The index aliases are crucial to allow for query API calls to remain unchanged while the index names change frequently.

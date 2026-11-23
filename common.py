@@ -23,6 +23,13 @@ index_settings = {
                     "tokenizer": "standard",
                     "filter": ["lowercase", "reverse"],
                 },
+                # 'edge_ngram_index' indexes word prefixes for partial-word search.
+                # See the 'prefix' sub-field in mappings/hugo.json and mappings/blog.json.
+                "edge_ngram_index": {
+                    "type": "custom",
+                    "tokenizer": "standard",
+                    "filter": ["lowercase", "edge_ngram_3_15"],
+                },
             },
             "filter": {
                 # 'shingle' filter needed by 'trigram' analyzer.
@@ -30,7 +37,16 @@ index_settings = {
                     "type": "shingle",
                     "min_shingle_size": 2,
                     "max_shingle_size": 3,
-                }
+                },
+                # 'edge_ngram_3_15' filter needed by 'edge_ngram_index' analyzer.
+                # preserve_original keeps the whole token so a word longer than
+                # max_gram still matches exactly on the prefix field.
+                "edge_ngram_3_15": {
+                    "type": "edge_ngram",
+                    "min_gram": 3,
+                    "max_gram": 15,
+                    "preserve_original": True,
+                },
             },
         },
     }
